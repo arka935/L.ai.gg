@@ -198,21 +198,67 @@
     line-height:1.5;
     color:#e9d5ff;
   }
-  .copy-btn{
+  .code-actions{
     position:absolute;
     top:8px; right:8px;
+    display:flex;
+    gap:6px;
+  }
+  .copy-btn, .preview-btn{
     font-family:'Sora', sans-serif;
     font-size:0.65rem;
     letter-spacing:0.04em;
     text-transform:uppercase;
-    color: var(--text-muted);
-    background: rgba(255,255,255,0.06);
-    border:1px solid rgba(255,255,255,0.1);
     border-radius:7px;
     padding:5px 9px;
     cursor:pointer;
+    border:1px solid rgba(255,255,255,0.1);
   }
-  .copy-btn:active{ transform: scale(0.95); }
+  .copy-btn{
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.06);
+  }
+  .preview-btn{
+    color:#fff;
+    background: linear-gradient(135deg, #7e22ce, #a855f7);
+    border-color: transparent;
+  }
+  .copy-btn:active, .preview-btn:active{ transform: scale(0.95); }
+
+  .preview-modal{
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.8);
+    z-index:300;
+    display:none;
+    flex-direction:column;
+  }
+  .preview-modal.open{ display:flex; }
+  .preview-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    background: var(--header-bg);
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .preview-header span{
+    font-family:'Sora', sans-serif; font-weight:700; font-size:0.9rem;
+    color: var(--text-primary);
+    display:flex; align-items:center; gap:8px;
+  }
+  .preview-close{
+    width:32px; height:32px; border-radius:10px;
+    border:1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    font-size:15px;
+    flex-shrink:0;
+  }
+  .preview-close:active{ transform: scale(0.92); }
+  .preview-frame{
+    flex:1; width:100%; border:none; background:#fff;
+  }
 
   .typing{
     align-self:flex-start;
@@ -317,6 +363,14 @@
   </div>
 </footer>
 
+<div class="preview-modal" id="previewModal">
+  <div class="preview-header">
+    <span>▶ Live Preview</span>
+    <button class="preview-close" id="previewClose" aria-label="Tutup preview">✕</button>
+  </div>
+  <iframe class="preview-frame" id="previewFrame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>
+</div>
+
 <script>
   var chatWindow = document.getElementById('chatWindow');
   var promptInput = document.getElementById('promptInput');
@@ -360,12 +414,27 @@
   function renderContent(text){
     var escaped = escapeHtml(text);
     escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code){
-      return '<div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button><pre><code>' + code + '</code></pre></div>';
+      var isHtml = /^html$/i.test(lang) || /&lt;html[\s&]|&lt;!doctype html/i.test(code);
+      var previewBtn = isHtml ? '<button class="preview-btn" onclick="openPreview(this)">▶ Preview</button>' : '';
+      return '<div class="code-block"><div class="code-actions">' + previewBtn + '<button class="copy-btn" onclick="copyCode(this)">Copy</button></div><pre><code>' + code + '</code></pre></div>';
     });
     escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
     escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     return escaped;
   }
+
+  function openPreview(btn){
+    var code = btn.closest('.code-block').querySelector('code').textContent;
+    document.getElementById('previewFrame').srcdoc = code;
+    document.getElementById('previewModal').classList.add('open');
+  }
+
+  function closePreview(){
+    document.getElementById('previewModal').classList.remove('open');
+    document.getElementById('previewFrame').srcdoc = 'about:blank';
+  }
+
+  document.getElementById('previewClose').addEventListener('click', closePreview);
 
   function copyCode(btn){
     var code = btn.parentElement.querySelector('code').innerText;
@@ -383,6 +452,33 @@
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
     return div;
+  }
+
+  // nampilin balasan L.ai pelan-pelan (efek ngetik), baru format markdown/code block di akhir
+  function typewriterReveal(text, onDone){
+    var div = document.createElement('div');
+    div.className = 'msg ai';
+    chatWindow.appendChild(div);
+
+    var i = 0;
+    var step = 2; // jumlah karakter per tick
+    var speed = 14; // ms per tick
+    if(text.length > 600) speed = 6;
+    if(text.length > 1500) speed = 3;
+
+    function tick(){
+      i += step;
+      div.textContent = text.slice(0, i);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      if(i < text.length){
+        setTimeout(tick, speed);
+      }else{
+        div.innerHTML = renderContent(text); // baru render markdown + tombol Copy/Preview setelah teks penuh
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        if(onDone) onDone();
+      }
+    }
+    tick();
   }
 
   function showTyping(){
@@ -458,11 +554,16 @@
       return res.json();
     })
     .then(function(data){
-      hideTyping();
       var reply = data.reply || 'Maaf, L.ai belum bisa menjawab itu sekarang.';
-      addMessage('ai', reply);
       chatHistory.push({ role:'assistant', content: reply });
       saveHistory();
+      // tetep tampilin indikator ngetik selama jeda 5 detik, baru reveal teks pelan-pelan
+      return new Promise(function(resolve){
+        setTimeout(function(){
+          hideTyping();
+          typewriterReveal(reply, resolve);
+        }, 5000);
+      });
     })
     .catch(function(err){
       hideTyping();

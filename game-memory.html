@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<script>
+  (function(){
+    var t = localStorage.getItem('lai_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Tebak Pasangan — L.ai Game Center</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black: #0d0818; --purple-dark: #1f1238;
+    --violet: #a855f7; --violet-light: #d8b4fe; --glow: rgba(168,85,247,0.45);
+    --text-primary: #f7f3fc; --text-muted: #b6a6d1;
+    --border: rgba(192,132,252,0.22);
+    --header-bg: rgba(13,8,24,0.5);
+    --surface: rgba(255,255,255,0.05);
+  }
+  [data-theme="light"]{
+    --black: #ffffff; --purple-dark: #f6f1fc;
+    --violet: #7c3aed; --violet-light: #9333ea; --glow: rgba(124,58,237,0.16);
+    --text-primary: #1c1330; --text-muted: #6b5d85;
+    --border: rgba(124,58,237,0.15);
+    --header-bg: rgba(255,255,255,0.7);
+    --surface: rgba(124,58,237,0.06);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; user-select:none; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Inter', system-ui, sans-serif;
+    color: var(--text-primary);
+    background: linear-gradient(160deg, var(--black) 0%, var(--purple-dark) 45%, var(--black) 100%);
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  header{
+    display:flex; align-items:center; gap:12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--header-bg);
+  }
+  .back{
+    width:32px; height:32px; border-radius:10px;
+    border:1px solid var(--border); background: var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-muted); text-decoration:none; flex-shrink:0;
+  }
+  .back svg{ width:15px; height:15px; }
+  .title{ font-family:'Sora', sans-serif; font-weight:700; font-size:0.9rem; flex:1; }
+  .stat{ font-family:'Sora', sans-serif; font-weight:700; font-size:0.85rem; color: var(--violet-light); }
+
+  main{ flex:1; display:flex; flex-direction:column; align-items:center; padding:20px 16px 30px; gap:18px; }
+
+  .board{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap:10px;
+    width:min(92vw, 340px);
+  }
+  .card{
+    aspect-ratio:1;
+    border-radius:12px;
+    background: var(--surface);
+    border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem;
+    cursor:pointer;
+    transition: transform .2s ease;
+  }
+  .card.flipped, .card.matched{
+    background: linear-gradient(135deg,#a855f7,#7e22ce);
+  }
+  .card.matched{ opacity:0.55; }
+  .card .face{ display:none; }
+  .card.flipped .face, .card.matched .face{ display:block; }
+
+  .btn{
+    font-family:'Sora', sans-serif; font-weight:700; font-size:0.85rem;
+    color: var(--text-primary); background: var(--surface);
+    border:1px solid var(--border); padding:12px 22px; border-radius:14px; cursor:pointer;
+  }
+  .btn:active{ transform: scale(0.96); }
+
+  .overlay{
+    position:fixed; inset:0; background: rgba(0,0,0,0.75);
+    display:none; align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  .overlay.open{ display:flex; }
+  .overlay-card{ background: var(--black); border:1px solid var(--border); border-radius:20px; padding:26px; text-align:center; max-width:270px; }
+  .overlay-card h2{ font-family:'Sora', sans-serif; font-size:1.25rem; margin-bottom:8px; }
+  .overlay-card p{ color: var(--text-muted); font-size:0.85rem; margin-bottom:18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="game-center.html" aria-label="Kembali">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </a>
+  <div class="title">Tebak Pasangan</div>
+  <div class="stat" id="moveCount">0 langkah</div>
+</header>
+
+<main>
+  <div class="board" id="board"></div>
+  <button class="btn" id="restartBtn">Acak Ulang</button>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <h2>Selesai! 🎉</h2>
+    <p id="overlayText">Selesai dalam 0 langkah</p>
+    <button class="btn" id="playAgainBtn">Main Lagi</button>
+  </div>
+</div>
+
+<script>
+  var EMOJIS = ['🚀','🎮','🎧','💎','🔥','⚡','🌙','🌸'];
+  var boardEl = document.getElementById('board');
+  var moveCountEl = document.getElementById('moveCount');
+  var overlay = document.getElementById('overlay');
+
+  var cards = [];
+  var flippedIndices = [];
+  var matchedCount = 0;
+  var moves = 0;
+  var locked = false;
+
+  function shuffle(arr){
+    for(var i=arr.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var tmp = arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+    }
+    return arr;
+  }
+
+  function setup(){
+    var deck = shuffle(EMOJIS.concat(EMOJIS).slice());
+    cards = deck.map(function(emoji){ return { emoji: emoji, flipped:false, matched:false }; });
+    flippedIndices = [];
+    matchedCount = 0;
+    moves = 0;
+    locked = false;
+    moveCountEl.textContent = '0 langkah';
+    overlay.classList.remove('open');
+    render();
+  }
+
+  function render(){
+    boardEl.innerHTML = '';
+    cards.forEach(function(card, i){
+      var el = document.createElement('div');
+      el.className = 'card' + (card.flipped ? ' flipped' : '') + (card.matched ? ' matched' : '');
+      el.innerHTML = '<span class="face">' + card.emoji + '</span>';
+      el.addEventListener('click', function(){ flip(i); });
+      boardEl.appendChild(el);
+    });
+  }
+
+  function flip(i){
+    if(locked || cards[i].flipped || cards[i].matched) return;
+    cards[i].flipped = true;
+    flippedIndices.push(i);
+    render();
+
+    if(flippedIndices.length === 2){
+      moves++;
+      moveCountEl.textContent = moves + ' langkah';
+      locked = true;
+      var a = flippedIndices[0], b = flippedIndices[1];
+      setTimeout(function(){
+        if(cards[a].emoji === cards[b].emoji){
+          cards[a].matched = true;
+          cards[b].matched = true;
+          matchedCount += 2;
+        } else {
+          cards[a].flipped = false;
+          cards[b].flipped = false;
+        }
+        flippedIndices = [];
+        locked = false;
+        render();
+        if(matchedCount === cards.length){
+          document.getElementById('overlayText').textContent = 'Selesai dalam ' + moves + ' langkah!';
+          overlay.classList.add('open');
+        }
+      }, 700);
+    }
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', setup);
+  document.getElementById('playAgainBtn').addEventListener('click', setup);
+
+  setup();
+</script>
+
+</body>
+</html>

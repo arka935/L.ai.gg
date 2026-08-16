@@ -11,6 +11,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Overview — Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -102,11 +103,7 @@
     padding: 6px 4px 0;
   }
   .brandmark{ display:flex; align-items:center; gap:10px; }
-  .brandmark .dot{
-    width:9px; height:9px; border-radius:50%;
-    background: var(--violet-light);
-    box-shadow: 0 0 12px 3px var(--glow);
-  }
+  .lai-logo{ height:26px; width:auto; display:block; }
   .brandmark span{
     font-family:'Sora', sans-serif;
     font-size:12px;
@@ -245,7 +242,18 @@
 
     <div class="topbar">
       <div class="brandmark">
-        <div class="dot"></div>
+        <svg class="lai-logo" viewBox="0 0 132 56" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="laiGrad" x1="0" y1="0" x2="132" y2="56" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#e5c9fe"/>
+              <stop offset="50%" stop-color="#a855f7"/>
+              <stop offset="100%" stop-color="#7e22ce"/>
+            </linearGradient>
+          </defs>
+          <rect x="6" y="4" width="14" height="40" rx="6" fill="url(#laiGrad)"/>
+          <rect x="6" y="32" width="60" height="12" rx="6" fill="url(#laiGrad)"/>
+          <text x="30" y="33" font-family="Sora, sans-serif" font-weight="800" font-size="32" fill="url(#laiGrad)">ai</text>
+        </svg>
         <span>Overview</span>
       </div>
       <div class="topbar-right">
@@ -275,21 +283,21 @@
         <div class="badge"><span class="dot"></span> Powered by L.ai</div>
       </a>
 
-      <a class="card" href="coming-soon.html?nama=Game%20Center">
+      <a class="card" href="game-center.html">
         <div class="card-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="12" rx="3"/><circle cx="8" cy="13" r="1.6"/><circle cx="16" cy="13" r="1.6"/></svg>
         </div>
         <div class="card-title">Game Center</div>
-        <div class="card-desc">Kumpulan mini game langsung di dashboard.</div>
+        <div class="card-desc">Main 2048 langsung di dashboard, skor kesimpen otomatis.</div>
         <div class="badge"><span class="dot"></span> Baru</div>
       </a>
 
-      <a class="card" href="coming-soon.html?nama=AI%20Tools%20Suite">
+      <a class="card" href="ai-tools.html">
         <div class="card-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.5-3.5a5 5 0 01-6.7 6.7L6 21l-3-3 8.5-8.5a5 5 0 016.7-6.7l-3.5 3.5z"/></svg>
         </div>
         <div class="card-title">AI Tools Suite</div>
-        <div class="card-desc">Kumpulan utilitas AI dalam satu tempat.</div>
+        <div class="card-desc">Ringkas teks, terjemahan, perbaiki tulisan, jelasin kode — pakai L.ai.</div>
         <div class="badge"><span class="dot"></span> Baru</div>
       </a>
 

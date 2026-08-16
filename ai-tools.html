@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<script>
+  (function(){
+    var t = localStorage.getItem('lai_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>AI Tools Suite — L.ai</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black: #0d0818; --purple-dark: #1f1238; --purple-mid: #4a2a7a;
+    --violet: #a855f7; --violet-light: #d8b4fe; --glow: rgba(168,85,247,0.45);
+    --text-primary: #f7f3fc; --text-muted: #b6a6d1;
+    --border: rgba(192,132,252,0.22);
+    --header-bg: rgba(13,8,24,0.5);
+    --surface: rgba(255,255,255,0.05);
+  }
+  [data-theme="light"]{
+    --black: #ffffff; --purple-dark: #f6f1fc; --purple-mid: #e4d4f9;
+    --violet: #7c3aed; --violet-light: #9333ea; --glow: rgba(124,58,237,0.16);
+    --text-primary: #1c1330; --text-muted: #6b5d85;
+    --border: rgba(124,58,237,0.15);
+    --header-bg: rgba(255,255,255,0.7);
+    --surface: rgba(124,58,237,0.06);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Inter', system-ui, sans-serif;
+    color: var(--text-primary);
+    background:
+      radial-gradient(ellipse 80% 50% at 10% -10%, var(--glow), transparent 60%),
+      linear-gradient(160deg, var(--black) 0%, var(--purple-dark) 45%, var(--black) 100%);
+    min-height:100vh;
+    display:flex; flex-direction:column;
+    transition: background .4s ease, color .3s ease;
+  }
+  header{
+    display:flex; align-items:center; gap:12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--header-bg);
+    backdrop-filter: blur(14px);
+    flex-shrink:0;
+  }
+  .back{
+    width:34px; height:34px; border-radius:11px;
+    border:1px solid var(--border); background: var(--surface);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-muted); text-decoration:none; flex-shrink:0;
+  }
+  .back svg{ width:16px; height:16px; }
+  .brand-icon{ height:28px; width:auto; flex-shrink:0; }
+  .title{ font-family:'Sora', sans-serif; font-weight:700; font-size:0.95rem; flex:1; }
+  .theme-toggle{
+    position:relative; width:44px; height:24px; border-radius:999px;
+    border:1px solid var(--border); background: var(--surface);
+    cursor:pointer; flex-shrink:0; padding:0;
+  }
+  .theme-toggle svg{ position:absolute; top:50%; width:10px; height:10px; margin-top:-5px; color: var(--text-muted); }
+  .theme-toggle .icon-sun{ left:6px; }
+  .theme-toggle .icon-moon{ right:6px; }
+  .theme-toggle .knob{
+    position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%;
+    background: linear-gradient(135deg,#a855f7,#7e22ce);
+    transition: transform .35s cubic-bezier(.4,0,.2,1), background .35s ease;
+  }
+  [data-theme="light"] .theme-toggle .knob{ transform: translateX(20px); background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+
+  main{
+    flex:1;
+    overflow-y:auto;
+    padding: 18px 16px 40px;
+    max-width:640px;
+    width:100%;
+    margin:0 auto;
+  }
+
+  .tabs{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    margin-bottom:18px;
+  }
+  .tab{
+    flex-shrink:0;
+    font-family:'Sora', sans-serif;
+    font-size:0.78rem;
+    font-weight:600;
+    padding:9px 15px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab.active{
+    color:#fff;
+    background: linear-gradient(135deg,#7e22ce,#a855f7);
+    border-color: transparent;
+  }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .field-label{
+    font-family:'Sora', sans-serif;
+    font-size:0.78rem;
+    font-weight:600;
+    color: var(--text-muted);
+    margin-bottom:8px;
+  }
+  textarea.tool-input{
+    width:100%;
+    min-height:140px;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:14px;
+    color: var(--text-primary);
+    font-family:'Inter', sans-serif;
+    font-size:0.9rem;
+    line-height:1.5;
+    resize:vertical;
+    margin-bottom:12px;
+  }
+  textarea.tool-input::placeholder{ color: var(--text-muted); }
+
+  select.lang-select{
+    width:100%;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px 14px;
+    color: var(--text-primary);
+    font-family:'Inter', sans-serif;
+    font-size:0.88rem;
+    margin-bottom:12px;
+  }
+
+  .run-btn{
+    width:100%;
+    font-family:'Sora', sans-serif;
+    font-weight:700;
+    font-size:0.9rem;
+    color:#fff;
+    background: linear-gradient(135deg,#7e22ce,#a855f7);
+    border:none;
+    border-radius:14px;
+    padding:14px;
+    cursor:pointer;
+    box-shadow: 0 10px 26px -8px rgba(147,51,234,0.6);
+  }
+  .run-btn:active{ transform: scale(0.98); }
+  .run-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .result-box{
+    margin-top:18px;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    font-size:0.9rem;
+    line-height:1.6;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+    display:none;
+    position:relative;
+  }
+  .result-box.show{ display:block; }
+  .result-box code{
+    font-family:'JetBrains Mono', monospace;
+    background: rgba(0,0,0,0.3);
+    padding:2px 6px;
+    border-radius:6px;
+    font-size:0.85em;
+  }
+  .result-copy{
+    position:absolute; top:10px; right:10px;
+    font-family:'Sora', sans-serif;
+    font-size:0.62rem;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:7px;
+    padding:5px 9px;
+    cursor:pointer;
+  }
+
+  .loading-dots{
+    display:none;
+    gap:5px;
+    padding:16px;
+    align-items:center;
+    justify-content:center;
+  }
+  .loading-dots.show{ display:flex; }
+  .loading-dots span{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--violet-light);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .loading-dots span:nth-child(2){ animation-delay:0.15s; }
+  .loading-dots span:nth-child(3){ animation-delay:0.3s; }
+  @keyframes bounce{ 0%,60%,100%{ transform: translateY(0); opacity:0.5; } 30%{ transform: translateY(-5px); opacity:1; } }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html" aria-label="Kembali">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </a>
+  <svg class="brand-icon" viewBox="0 0 132 56" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="laiGrad" x1="0" y1="0" x2="132" y2="56" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#e5c9fe"/><stop offset="50%" stop-color="#a855f7"/><stop offset="100%" stop-color="#7e22ce"/>
+      </linearGradient>
+    </defs>
+    <rect x="6" y="4" width="14" height="40" rx="6" fill="url(#laiGrad)"/>
+    <rect x="6" y="32" width="60" height="12" rx="6" fill="url(#laiGrad)"/>
+    <text x="30" y="33" font-family="Sora, sans-serif" font-weight="800" font-size="32" fill="url(#laiGrad)">ai</text>
+  </svg>
+  <div class="title">AI Tools Suite</div>
+  <button class="theme-toggle" id="themeToggle" aria-label="Ganti tema">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
+    <span class="knob"></span>
+  </button>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab active" data-tool="ringkas">Ringkasan Teks</button>
+    <button class="tab" data-tool="terjemah">Terjemahan</button>
+    <button class="tab" data-tool="perbaiki">Perbaiki Tulisan</button>
+    <button class="tab" data-tool="kode">Jelasin Kode</button>
+  </div>
+
+  <div class="panel active" data-panel="ringkas">
+    <div class="field-label">Tempel teks yang mau diringkas</div>
+    <textarea class="tool-input" id="input-ringkas" placeholder="Tempel artikel, catatan, atau teks panjang di sini..."></textarea>
+    <button class="run-btn" data-run="ringkas">Ringkas Sekarang</button>
+  </div>
+
+  <div class="panel" data-panel="terjemah">
+    <div class="field-label">Terjemahkan ke</div>
+    <select class="lang-select" id="lang-terjemah">
+      <option value="Inggris">Bahasa Inggris</option>
+      <option value="Indonesia">Bahasa Indonesia</option>
+      <option value="Jepang">Bahasa Jepang</option>
+      <option value="Spanyol">Bahasa Spanyol</option>
+    </select>
+    <div class="field-label">Teks yang mau diterjemahkan</div>
+    <textarea class="tool-input" id="input-terjemah" placeholder="Tulis atau tempel teksnya di sini..."></textarea>
+    <button class="run-btn" data-run="terjemah">Terjemahkan</button>
+  </div>
+
+  <div class="panel" data-panel="perbaiki">
+    <div class="field-label">Teks yang mau diperbaiki ejaan/tata bahasanya</div>
+    <textarea class="tool-input" id="input-perbaiki" placeholder="Tempel draft tulisan kamu di sini..."></textarea>
+    <button class="run-btn" data-run="perbaiki">Perbaiki Tulisan</button>
+  </div>
+
+  <div class="panel" data-panel="kode">
+    <div class="field-label">Tempel kode yang mau dijelasin</div>
+    <textarea class="tool-input" id="input-kode" placeholder="Tempel snippet kode di sini..."></textarea>
+    <button class="run-btn" data-run="kode">Jelasin Kode Ini</button>
+  </div>
+
+  <div class="loading-dots" id="loadingDots"><span></span><span></span><span></span></div>
+  <div class="result-box" id="resultBox">
+    <button class="result-copy" id="resultCopy">Copy</button>
+    <div id="resultText"></div>
+  </div>
+</main>
+
+<script>
+  var tabs = document.querySelectorAll('.tab');
+  var panels = document.querySelectorAll('.panel');
+  var loadingDots = document.getElementById('loadingDots');
+  var resultBox = document.getElementById('resultBox');
+  var resultText = document.getElementById('resultText');
+  var resultCopy = document.getElementById('resultCopy');
+  var isRunning = false;
+
+  function showDebugError(msg){
+    var bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:10px 14px;font-size:11px;font-family:monospace;z-index:9999;word-break:break-word;';
+    bar.textContent = 'Error: ' + msg;
+    document.body.appendChild(bar);
+    setTimeout(function(){ bar.remove(); }, 10000);
+  }
+  window.addEventListener('error', function(e){ showDebugError(e.message); });
+  window.addEventListener('unhandledrejection', function(e){
+    showDebugError((e.reason && e.reason.message) || String(e.reason));
+  });
+
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      if(isRunning) return;
+      var tool = tab.getAttribute('data-tool');
+      tabs.forEach(function(t){ t.classList.remove('active'); });
+      panels.forEach(function(p){ p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.querySelector('.panel[data-panel="' + tool + '"]').classList.add('active');
+      resultBox.classList.remove('show');
+    });
+  });
+
+  function escapeHtml(str){
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function renderResult(text){
+    var escaped = escapeHtml(text);
+    escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code){
+      return '<pre style="overflow-x:auto;background:rgba(0,0,0,0.3);padding:12px;border-radius:10px;margin:8px 0;"><code>' + code + '</code></pre>';
+    });
+    escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+    escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return escaped;
+  }
+
+  function buildPrompt(tool){
+    if(tool === 'ringkas'){
+      var text = document.getElementById('input-ringkas').value.trim();
+      if(!text) return null;
+      return 'Ringkas teks berikut ke dalam beberapa poin penting, singkat dan jelas, dalam Bahasa Indonesia. Jangan tambahkan komentar di luar ringkasan.\n\nTeks:\n' + text;
+    }
+    if(tool === 'terjemah'){
+      var text2 = document.getElementById('input-terjemah').value.trim();
+      var lang = document.getElementById('lang-terjemah').value;
+      if(!text2) return null;
+      return 'Terjemahkan teks berikut ke Bahasa ' + lang + '. Berikan HANYA hasil terjemahannya saja tanpa embel-embel penjelasan lain.\n\nTeks:\n' + text2;
+    }
+    if(tool === 'perbaiki'){
+      var text3 = document.getElementById('input-perbaiki').value.trim();
+      if(!text3) return null;
+      return 'Perbaiki ejaan, tata bahasa, dan kejelasan teks berikut, tapi pertahankan makna dan gaya bahasa aslinya. Berikan HANYA hasil perbaikannya saja tanpa embel-embel penjelasan.\n\nTeks:\n' + text3;
+    }
+    if(tool === 'kode'){
+      var text4 = document.getElementById('input-kode').value.trim();
+      if(!text4) return null;
+      return 'Jelaskan apa yang dilakukan kode berikut ini secara singkat dan mudah dipahami, per bagian, dalam Bahasa Indonesia:\n\n' + text4;
+    }
+    return null;
+  }
+
+  document.querySelectorAll('.run-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if(isRunning) return;
+      var tool = btn.getAttribute('data-run');
+      runTool(tool);
+    });
+  });
+
+  function runTool(tool){
+    var prompt = buildPrompt(tool);
+    if(!prompt){
+      showDebugError('Isi teksnya dulu ya sebelum diproses.');
+      return;
+    }
+
+    isRunning = true;
+    document.querySelectorAll('.run-btn').forEach(function(b){ b.disabled = true; });
+    resultBox.classList.remove('show');
+    loadingDots.classList.add('show');
+
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+
+    fetch('/.netlify/functions/chat', {
+      method:'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ messages: [{ role:'user', content: prompt }] }),
+      signal: controller.signal
+    })
+    .then(function(res){
+      if(!res.ok) throw new Error('Server balas status ' + res.status);
+      return res.json();
+    })
+    .then(function(data){
+      var reply = data.reply || 'Maaf, L.ai gak bisa proses ini sekarang.';
+      resultText.innerHTML = renderResult(reply);
+      resultBox.classList.add('show');
+      resultCopy.dataset.raw = reply;
+    })
+    .catch(function(err){
+      var msg = (err && err.name === 'AbortError')
+        ? 'Kelamaan, coba lagi ya (timeout 30 detik).'
+        : 'Gagal proses: ' + (err && err.message ? err.message : 'gangguan server');
+      resultText.textContent = msg;
+      resultBox.classList.add('show');
+    })
+    .finally(function(){
+      clearTimeout(timeoutId);
+      loadingDots.classList.remove('show');
+      isRunning = false;
+      document.querySelectorAll('.run-btn').forEach(function(b){ b.disabled = false; });
+    });
+  }
+
+  resultCopy.addEventListener('click', function(){
+    var raw = resultCopy.dataset.raw || resultText.innerText;
+    navigator.clipboard.writeText(raw).then(function(){
+      var old = resultCopy.textContent;
+      resultCopy.textContent = 'Copied';
+      setTimeout(function(){ resultCopy.textContent = old; }, 1500);
+    });
+  });
+
+  var themeToggle = document.getElementById('themeToggle');
+  themeToggle.addEventListener('click', function(){
+    var current = document.documentElement.getAttribute('data-theme') || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('lai_theme', next); }catch(e){}
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>VoxelCraft &mdash; Voxel World Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:'JetBrains Mono', monospace; touch-action:none; user-select:none; -webkit-user-select:none; }
+  #gameCanvas { position:fixed; top:0; left:0; display:block; outline:none; }
+
+  /* ---------- Loading screen ---------- */
+  #loadingScreen{ position:fixed; inset:0; z-index:60; background:#0d130d; display:flex; align-items:center; justify-content:center; }
+  #loadingBox{ text-align:center; color:#8fd45c; width:280px; }
+  .loadingTitle{ font-family:'Press Start 2P',monospace; font-size:20px; margin-bottom:20px; text-shadow:3px 3px 0 #1c2b12; animation:pulse 1.2s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.55;} }
+  #loadingBarOuter{ width:100%; height:16px; background:#1b2416; border:2px solid #3a5a2f; margin-bottom:10px; }
+  #loadingBar{ height:100%; width:0%; background:#5b9c3f; transition:width 0.25s; }
+  #loadingText{ font-size:11px; color:#a9c99a; }
+
+  /* ---------- Blocker / start screen ---------- */
+  #blocker {
+    position:fixed; inset:0; z-index:50;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 50% 30%, #2a3f2a 0%, #0d130d 75%);
+  }
+  #startPanel {
+    max-width: 460px; width: 88%;
+    background: rgba(10,14,10,0.72);
+    border: 3px solid #3a5a2f;
+    box-shadow: 0 0 0 3px #17240f, 0 12px 40px rgba(0,0,0,0.6);
+    padding: 24px 22px;
+    text-align:center;
+    color:#e7f0e0;
+    max-height: 88vh; overflow-y:auto;
+  }
+  #startPanel h1 {
+    font-family:'Press Start 2P', monospace;
+    font-size: clamp(20px, 5.5vw, 30px);
+    color:#8fd45c;
+    text-shadow: 3px 3px 0 #1c2b12;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  #startPanel .sub { font-size:11px; color:#a9c99a; margin-bottom:14px; letter-spacing:0.5px; }
+  .modeButtons{ display:flex; flex-direction:column; gap:9px; margin-bottom:14px; }
+  .startBtn {
+    font-family:'Press Start 2P', monospace;
+    font-size: 11px;
+    background:#5b9c3f; color:#0d130d;
+    padding: 11px 10px;
+    border: 3px solid #3a5a2f;
+    box-shadow: 3px 3px 0 #17240f;
+    cursor:pointer;
+  }
+  .startBtn.alt{ background:#c0392b; border-color:#6f2018; }
+  .startBtn.hard{ background:#1a1a1a; border-color:#000; color:#e04444; }
+  .startBtn small{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; margin-top:5px; opacity:0.85; letter-spacing:0; }
+  .miniBtn{ font-family:'JetBrains Mono',monospace; font-size:10px; background:#2b3a24; color:#cfe8bf; border:2px solid #3a5a2f; padding:7px 10px; cursor:pointer; margin-bottom:10px; }
+  #startPanel .controls { text-align:left; font-size:11px; line-height:1.65; color:#cfe0c4; }
+  #startPanel .controls b { color:#eaffb0; }
+  #startPanel .hint { margin-top:12px; font-size:10px; color:#6f8a63; }
+  #startPanel.mobile .controls { display:none; }
+  #mobileControlsInfo { display:none; text-align:left; font-size:11px; line-height:1.65; color:#cfe0c4; }
+  #startPanel.mobile #mobileControlsInfo { display:block; }
+
+  /* ---------- Game over (hardcore) ---------- */
+  #gameOverScreen{ position:fixed; inset:0; z-index:55; display:none; align-items:center; justify-content:center; background:rgba(20,0,0,0.85); }
+  #gameOverBox{ text-align:center; color:#ff8a8a; }
+  #gameOverBox h1{ font-family:'Press Start 2P',monospace; font-size:26px; margin-bottom:10px; text-shadow:3px 3px 0 #300; }
+  #gameOverBox p{ font-size:12px; color:#e0b0b0; margin-bottom:18px; }
+
+  /* ---------- HUD ---------- */
+  #crosshair {
+    position:fixed; top:50%; left:50%; width:20px; height:20px;
+    transform:translate(-50%,-50%);
+    z-index:20; pointer-events:none;
+    mix-blend-mode: difference;
+  }
+  #crosshair::before, #crosshair::after { content:''; position:absolute; background:#fff; }
+  #crosshair::before { left:9px; top:2px; width:2px; height:16px; }
+  #crosshair::after  { top:9px; left:2px; height:2px; width:16px; }
+
+  #debugHud {
+    position:fixed; top:10px; left:10px; z-index:20;
+    font-size:10.5px; color:#cfe8bf; background:rgba(10,14,10,0.45);
+    padding:6px 9px; border:1px solid rgba(143,212,92,0.3);
+    pointer-events:none; line-height:1.5; display:none;
+  }
+
+  #hitFlash { position:fixed; inset:0; pointer-events:none; z-index:15; background:rgba(255,255,255,0); transition: background 140ms; }
+
+  #toast {
+    position:fixed; top:70px; left:50%; transform:translate(-50%,-10px);
+    z-index:32; background:rgba(20,10,10,0.88); color:#ffd9d9; border:1px solid rgba(255,120,120,0.4);
+    padding:8px 14px; font-size:11px; opacity:0; transition:opacity 0.25s, transform 0.25s; pointer-events:none; text-align:center;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  #vitals{ position:fixed; bottom:82px; left:14px; z-index:20; display:none; }
+  .pipRow{ font-size:16px; line-height:1.3; letter-spacing:1px; text-shadow:1px 1px 2px #000; margin-bottom:2px; }
+  #armorRow{ font-size:14px; opacity:0.92; }
+
+  #hotbar {
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+    z-index:20; display:flex; gap:5px; flex-wrap:wrap; justify-content:center; max-width:94vw;
+    background:rgba(10,14,10,0.5); padding:6px; border:2px solid rgba(143,212,92,0.35);
+  }
+  .slot {
+    width:44px; height:44px; position:relative;
+    border:2px solid #35492c; background:#1b2416;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; pointer-events:auto;
+  }
+  .slot.selected { border-color:#eaffb0; box-shadow:0 0 0 2px rgba(234,255,176,0.5) inset; }
+  .slot .swatch { width:26px; height:26px; border:1px solid rgba(0,0,0,0.35); }
+  .slot .emoji { font-size:20px; line-height:1; }
+  .slot .num { position:absolute; top:1px; left:3px; font-size:8px; color:#cfe8bf; opacity:0.8; }
+  .slot .count { position:absolute; bottom:1px; right:3px; font-size:10px; color:#fff; text-shadow:1px 1px 1px #000; }
+  @media (max-width:480px){
+    .slot{ width:34px; height:34px; }
+    .slot .swatch{ width:18px; height:18px; }
+    .slot .emoji{ font-size:15px; }
+    #hotbar{ gap:3px; padding:4px; }
+  }
+
+  /* ---------- Modal panels (craft / settings) ---------- */
+  .modalBackdrop{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); }
+  .modalBox{
+    background:rgba(14,18,12,0.96); border:3px solid #3a5a2f; box-shadow:0 0 0 3px #17240f;
+    width:min(92vw, 420px); max-height:80vh; overflow-y:auto; padding:16px; color:#e7f0e0;
+  }
+  .modalBox h2{ font-family:'Press Start 2P',monospace; font-size:14px; color:#8fd45c; margin-bottom:12px; text-align:center; }
+  .recipeRow{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 6px; border-bottom:1px solid rgba(143,212,92,0.15); }
+  .recipeInfo{ font-size:11px; line-height:1.5; }
+  .recipeInfo b{ color:#eaffb0; font-size:12px; }
+  .recipeNeeds{ color:#a9c99a; }
+  .craftBtn{ font-family:'Press Start 2P',monospace; font-size:9px; padding:8px 10px; background:#5b9c3f; color:#0d130d; border:2px solid #3a5a2f; cursor:pointer; white-space:nowrap; }
+  .craftBtn:disabled{ background:#3a4a35; color:#6f8a63; cursor:not-allowed; }
+  .closeHint{ text-align:center; font-size:10px; color:#6f8a63; margin-top:10px; }
+  .settingRow{ margin-bottom:16px; }
+  .settingRow label{ display:flex; justify-content:space-between; font-size:11px; color:#cfe0c4; margin-bottom:6px; }
+  .settingRow input[type=range]{ width:100%; }
+  .settingRow.checkRow{ display:flex; align-items:center; gap:8px; }
+  .settingRow.checkRow label{ margin:0; }
+
+  /* ---------- Top icons ---------- */
+  #topIcons{ position:fixed; top:12px; right:12px; z-index:22; display:flex; gap:8px; }
+  .iconBtn{ width:36px; height:36px; border-radius:50%; background:rgba(10,14,10,0.55); border:2px solid rgba(143,212,92,0.4); color:#cfe8bf; display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; pointer-events:auto; }
+
+  /* ---------- Chat ---------- */
+  #chatWrap{ position:fixed; top:90px; left:50%; transform:translateX(-50%); width:min(86vw,360px); z-index:33; display:none; }
+  #chatInput{ width:100%; background:rgba(10,14,10,0.85); border:2px solid rgba(143,212,92,0.5); color:#eaffb0; font-family:'JetBrains Mono',monospace; font-size:12px; padding:8px 10px; outline:none; }
+  #chatHint{ font-size:9px; color:#a9c99a; text-align:center; margin-top:4px; }
+
+  /* ---------- Touch controls ---------- */
+  #touchLayer { position:fixed; inset:0; z-index:18; display:none; pointer-events:none; }
+  #joyBase {
+    position:fixed; left:24px; bottom:110px; width:100px; height:100px;
+    border-radius:50%; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.25);
+    pointer-events:auto;
+  }
+  #joyKnob {
+    position:absolute; top:50%; left:50%; width:42px; height:42px; border-radius:50%;
+    background:rgba(255,255,255,0.35); transform:translate(-50%,-50%); pointer-events:none;
+  }
+  .smallTouchBtn{
+    position:fixed; width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,0.12); border:2px solid rgba(255,255,255,0.3);
+    color:#fff; font-size:8px; font-family:'JetBrains Mono', monospace;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    pointer-events:auto; z-index:19; line-height:1.1;
+  }
+  #btnSprint{ left:24px; bottom:222px; background:rgba(90,200,140,0.25); border-color:rgba(90,200,140,0.5); }
+  #btnCrouch{ left:84px; bottom:222px; background:rgba(200,170,90,0.25); border-color:rgba(200,170,90,0.5); }
+  #btnSprint.active, #btnCrouch.active{ background:rgba(255,255,255,0.4); }
+
+  .touchBtn {
+    position:fixed; width:58px; height:58px; border-radius:50%;
+    background:rgba(255,255,255,0.12); border:2px solid rgba(255,255,255,0.3);
+    color:#fff; font-size:9px; font-family:'JetBrains Mono', monospace;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    pointer-events:auto; z-index:19; line-height:1.15;
+  }
+  .touchBtn:active { background:rgba(255,255,255,0.3); }
+  #btnJump   { right:24px;  bottom:280px; }
+  #btnBreak  { right:96px;  bottom:190px; background:rgba(220,90,70,0.28);  border-color:rgba(220,90,70,0.55); }
+  #btnPlace  { right:24px;  bottom:190px; background:rgba(90,170,220,0.28); border-color:rgba(90,170,220,0.55); }
+  #btnEat    { right:96px;  bottom:118px; background:rgba(220,160,50,0.28); border-color:rgba(220,160,50,0.55); }
+  #btnBag    { right:24px;  bottom:118px; background:rgba(160,90,220,0.28); border-color:rgba(160,90,220,0.55); }
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div id="loadingBox">
+    <div class="loadingTitle">VOXELCRAFT</div>
+    <div id="loadingBarOuter"><div id="loadingBar"></div></div>
+    <div id="loadingText">Memuat...</div>
+  </div>
+</div>
+
+<div id="blocker">
+  <div id="startPanel">
+    <h1>VOXELCRAFT</h1>
+    <div class="sub">dunia balok yang terinspirasi dari game builder favoritmu</div>
+    <div class="modeButtons">
+      <div class="startBtn" id="btnSurvival">⚔ SURVIVAL<small>kumpulkan bahan, buat alat &amp; armor, jaga nyawa</small></div>
+      <div class="startBtn hard" id="btnHardcore">💀 HARDCORE<small>seperti survival, tapi cuma 1 nyawa (mati = game over)</small></div>
+      <div class="startBtn alt" id="btnCreative">🎨 KREATIF<small>balok tak terbatas, tanpa nyawa/lapar</small></div>
+    </div>
+    <div class="miniBtn" id="btnFullscreenStart">⛶ Layar Penuh</div>
+    <div class="controls" id="desktopControlsInfo">
+      <div><b>WASD</b> gerak &nbsp; <b>Spasi</b> lompat &nbsp; <b>Shift</b> toggle lari &nbsp; <b>C</b> jongkok</div>
+      <div><b>Mouse</b> lihat sekitar</div>
+      <div><b>Klik Kiri</b> hancur/serang &nbsp; <b>Klik Kanan</b> pasang</div>
+      <div><b>1&ndash;9</b> slot &nbsp; <b>E</b> kerajinan &nbsp; <b>R</b> makan &nbsp; <b>T</b> chat/command</div>
+    </div>
+    <div class="controls" id="mobileControlsInfo">
+      <div><b>Joystick kiri</b> gerak &nbsp; <b>Geser layar</b> lihat sekitar</div>
+      <div><b>Merah</b> hancur/serang &nbsp; <b>Biru</b> pasang &nbsp; <b>Jingga</b> makan</div>
+      <div><b>Ungu</b> kerajinan &nbsp; ikon atas: chat, setting, layar penuh</div>
+    </div>
+    <div class="hint">dibuat dengan Three.js &middot; tekstur digambar prosedural &middot; tanpa aset asli Minecraft</div>
+  </div>
+</div>
+
+<div id="gameOverScreen">
+  <div id="gameOverBox">
+    <h1>GAME OVER</h1>
+    <p>Mode Hardcore &mdash; hanya satu nyawa. Petualanganmu berakhir di sini.</p>
+    <div class="startBtn" id="btnRestart">🔄 MULAI ULANG</div>
+  </div>
+</div>
+
+<div id="crosshair"></div>
+<div id="hitFlash"></div>
+<div id="toast"></div>
+<div id="debugHud"></div>
+
+<div id="vitals">
+  <div class="pipRow" id="heartsRow"></div>
+  <div class="pipRow" id="hungerRow"></div>
+  <div class="pipRow" id="armorRow"></div>
+</div>
+
+<div id="hotbar"></div>
+
+<div id="topIcons">
+  <div class="iconBtn" id="btnChatToggle" title="Chat/Command">💬</div>
+  <div class="iconBtn" id="btnSettingsToggle" title="Setting">⚙</div>
+  <div class="iconBtn" id="btnFullscreenToggle" title="Layar Penuh">⛶</div>
+</div>
+
+<div id="chatWrap">
+  <input id="chatInput" type="text" placeholder="/help untuk daftar command..." maxlength="60">
+  <div id="chatHint">Enter kirim &middot; Esc batal</div>
+</div>
+
+<div class="modalBackdrop" id="craftPanel">
+  <div class="modalBox">
+    <h2>KERAJINAN</h2>
+    <div id="recipeList"></div>
+    <div class="closeHint">Tekan E / tombol ungu / ketuk luar kotak untuk tutup</div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="settingsPanel">
+  <div class="modalBox">
+    <h2>PENGATURAN</h2>
+    <div class="settingRow">
+      <label><span>Jarak Pandang</span><span id="valRender"></span></label>
+      <input type="range" id="rngRender" min="24" max="110" step="2">
+    </div>
+    <div class="settingRow">
+      <label><span>Sensitivitas Mouse/Sentuh</span><span id="valSens"></span></label>
+      <input type="range" id="rngSens" min="1" max="10" step="1">
+    </div>
+    <div class="settingRow">
+      <label><span>FOV (Sudut Pandang)</span><span id="valFov"></span></label>
+      <input type="range" id="rngFov" min="60" max="100" step="1">
+    </div>
+    <div class="settingRow">
+      <label><span>Kualitas Grafis</span><span id="valQuality"></span></label>
+      <input type="range" id="rngQuality" min="1" max="3" step="1">
+    </div>
+    <div class="settingRow checkRow">
+      <input type="checkbox" id="chkExperimental">
+      <label for="chkExperimental">Mode Eksperimental (double-tap Spasi = terbang)</label>
+    </div>
+    <div class="closeHint">Tekan Esc / ikon ⚙ / ketuk luar kotak untuk tutup</div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="touchLayerDummy" style="display:none"></div>
+
+<div id="touchLayer">
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div class="smallTouchBtn" id="btnSprint">LARI</div>
+  <div class="smallTouchBtn" id="btnCrouch">JONGKOK</div>
+  <div class="touchBtn" id="btnJump">LOMPAT</div>
+  <div class="touchBtn" id="btnBreak">HANCUR/<br>SERANG</div>
+  <div class="touchBtn" id="btnPlace">PASANG</div>
+  <div class="touchBtn" id="btnEat">MAKAN</div>
+  <div class="touchBtn" id="btnBag">RAMU</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================
+   VOXELCRAFT — voxel sandbox terinspirasi Minecraft.
+   Tekstur digambar prosedural, mob dari primitif geometris, suara disintesis
+   dengan Web Audio API. TIDAK memuat aset asli Minecraft.
+   Catatan jujur soal batasan ada di ringkasan chat, bukan di sini.
+   ========================================================================= */
+
+/* ---------------------- Konstanta dunia ---------------------- */
+const CHUNK_X = 64, CHUNK_Y = 40, CHUNK_Z = 64;
+const BASE_Y = 10, HEIGHT_VAR = 9, WATER_LEVEL = 11;
+const BUFFER_SLOTS = 900;
+
+const BLOCK = { AIR:0, GRASS:1, DIRT:2, STONE:3, WOOD:4, LEAVES:5, SAND:6, WATER:7, PLANK:8, GLASS:9, COAL_ORE:10, IRON_ORE:11 };
+const ITEM = {
+  STICK:100, COAL:101, IRON_ORE_ITEM:102,
+  PICKAXE_WOOD:110, AXE_WOOD:111, SWORD_WOOD:112,
+  PICKAXE_STONE:113, SWORD_STONE:114,
+  PICKAXE_IRON:115, SWORD_IRON:116,
+  MEAT_RAW:120, APPLE:121,
+  HELMET_IRON:140, CHEST_IRON:141, LEGS_IRON:142, BOOTS_IRON:143,
+  BOW:150, ARROW:151,
+};
+const SOLID_FOR_COLLISION = { [BLOCK.AIR]:false, [BLOCK.WATER]:false };
+function isSolid(t){ return t!==BLOCK.AIR && SOLID_FOR_COLLISION[t]!==false; }
+
+const HOTBAR_CREATIVE = [
+  { type:BLOCK.GRASS,     name:'Rumput',      color:'#5b9c3f' },
+  { type:BLOCK.DIRT,      name:'Tanah',       color:'#7a5230' },
+  { type:BLOCK.STONE,     name:'Batu',        color:'#8a8a8a' },
+  { type:BLOCK.WOOD,      name:'Kayu',        color:'#6b4a2a' },
+  { type:BLOCK.PLANK,     name:'Papan',       color:'#c9a56a' },
+  { type:BLOCK.SAND,      name:'Pasir',       color:'#e0d29a' },
+  { type:BLOCK.LEAVES,    name:'Daun',        color:'#3f7a2f' },
+  { type:BLOCK.GLASS,     name:'Kaca',        color:'#bfe8ea' },
+  { type:BLOCK.COAL_ORE,  name:'Bijih Batu Bara', color:'#3a3a3a' },
+  { type:BLOCK.IRON_ORE,  name:'Bijih Besi',  color:'#b5967a' },
+];
+let selectedBlock = HOTBAR_CREATIVE[0].type;
+
+const TOOL_INFO = {
+  [ITEM.PICKAXE_WOOD]:  { category:'pickaxe', tier:1, dmg:2 },
+  [ITEM.AXE_WOOD]:      { category:'axe',     tier:1, dmg:2 },
+  [ITEM.SWORD_WOOD]:    { category:'sword',   tier:1, dmg:3 },
+  [ITEM.PICKAXE_STONE]: { category:'pickaxe', tier:2, dmg:3 },
+  [ITEM.SWORD_STONE]:   { category:'sword',   tier:2, dmg:4 },
+  [ITEM.PICKAXE_IRON]:  { category:'pickaxe', tier:3, dmg:4 },
+  [ITEM.SWORD_IRON]:    { category:'sword',   tier:3, dmg:5 },
+};
+const FOOD_INFO = { [ITEM.MEAT_RAW]: { hunger:4 }, [ITEM.APPLE]: { hunger:3 } };
+const BLOCK_INFO = {
+  [BLOCK.STONE]:    { needsTool:'pickaxe', minTier:1, label:'Beliung' },
+  [BLOCK.COAL_ORE]: { needsTool:'pickaxe', minTier:1, label:'Beliung' },
+  [BLOCK.IRON_ORE]: { needsTool:'pickaxe', minTier:2, label:'Beliung Batu' },
+};
+const ARMOR_SLOTS = ['head','chest','legs','feet'];
+
+const RECIPES = [
+  { id:'plank',       name:'Papan Kayu',   result:BLOCK.PLANK,       resultCount:4, needs:[{id:BLOCK.WOOD,count:1}] },
+  { id:'stick',       name:'Tongkat',      result:ITEM.STICK,        resultCount:4, needs:[{id:BLOCK.PLANK,count:2}] },
+  { id:'pick_wood',   name:'Beliung Kayu', result:ITEM.PICKAXE_WOOD, resultCount:1, needs:[{id:BLOCK.PLANK,count:3},{id:ITEM.STICK,count:2}] },
+  { id:'axe_wood',    name:'Kapak Kayu',   result:ITEM.AXE_WOOD,     resultCount:1, needs:[{id:BLOCK.PLANK,count:3},{id:ITEM.STICK,count:2}] },
+  { id:'sword_wood',  name:'Pedang Kayu',  result:ITEM.SWORD_WOOD,   resultCount:1, needs:[{id:BLOCK.PLANK,count:2},{id:ITEM.STICK,count:1}] },
+  { id:'pick_stone',  name:'Beliung Batu', result:ITEM.PICKAXE_STONE,resultCount:1, needs:[{id:BLOCK.STONE,count:3},{id:ITEM.STICK,count:2}] },
+  { id:'sword_stone', name:'Pedang Batu',  result:ITEM.SWORD_STONE,  resultCount:1, needs:[{id:BLOCK.STONE,count:2},{id:ITEM.STICK,count:1}] },
+  { id:'pick_iron',   name:'Beliung Besi', result:ITEM.PICKAXE_IRON, resultCount:1, needs:[{id:ITEM.IRON_ORE_ITEM,count:3},{id:ITEM.STICK,count:2}] },
+  { id:'sword_iron',  name:'Pedang Besi',  result:ITEM.SWORD_IRON,   resultCount:1, needs:[{id:ITEM.IRON_ORE_ITEM,count:2},{id:ITEM.STICK,count:1}] },
+  { id:'bow',         name:'Panah',        result:ITEM.BOW,          resultCount:1, needs:[{id:ITEM.STICK,count:3}] },
+  { id:'arrow',       name:'Anak Panah',   result:ITEM.ARROW,        resultCount:4, needs:[{id:ITEM.STICK,count:1},{id:ITEM.COAL,count:1}] },
+  { id:'helm_iron',   name:'Helm Besi',    result:ITEM.HELMET_IRON,  resultCount:1, needs:[{id:ITEM.IRON_ORE_ITEM,count:5}], isArmor:true, slot:'head',  reduce:0.05 },
+  { id:'chest_iron',  name:'Zirah Besi',   result:ITEM.CHEST_IRON,   resultCount:1, needs:[{id:ITEM.IRON_ORE_ITEM,count:8}], isArmor:true, slot:'chest', reduce:0.09 },
+  { id:'legs_iron',   name:'Celana Besi',  result:ITEM.LEGS_IRON,    resultCount:1, needs:[{id:ITEM.IRON_ORE_ITEM,count:7}], isArmor:true, slot:'legs',  reduce:0.07 },
+  { id:'boots_iron',  name:'Sepatu Besi',  result:ITEM.BOOTS_IRON,   resultCount:1, needs:[{id:ITEM.IRON_ORE_ITEM,count:4}], isArmor:true, slot:'feet',  reduce:0.04 },
+];
+
+function itemLabel(id){
+  const names = {
+    [BLOCK.GRASS]:'Rumput', [BLOCK.DIRT]:'Tanah', [BLOCK.STONE]:'Batu', [BLOCK.WOOD]:'Kayu',
+    [BLOCK.PLANK]:'Papan', [BLOCK.SAND]:'Pasir', [BLOCK.LEAVES]:'Daun', [BLOCK.GLASS]:'Kaca',
+    [BLOCK.COAL_ORE]:'Bijih Batu Bara', [BLOCK.IRON_ORE]:'Bijih Besi',
+    [ITEM.STICK]:'Tongkat', [ITEM.COAL]:'Batu Bara', [ITEM.IRON_ORE_ITEM]:'Besi Mentah',
+    [ITEM.PICKAXE_WOOD]:'Beliung Kayu', [ITEM.AXE_WOOD]:'Kapak Kayu', [ITEM.SWORD_WOOD]:'Pedang Kayu',
+    [ITEM.PICKAXE_STONE]:'Beliung Batu', [ITEM.SWORD_STONE]:'Pedang Batu',
+    [ITEM.PICKAXE_IRON]:'Beliung Besi', [ITEM.SWORD_IRON]:'Pedang Besi',
+    [ITEM.MEAT_RAW]:'Daging Mentah', [ITEM.APPLE]:'Apel',
+    [ITEM.HELMET_IRON]:'Helm Besi', [ITEM.CHEST_IRON]:'Zirah Besi', [ITEM.LEGS_IRON]:'Celana Besi', [ITEM.BOOTS_IRON]:'Sepatu Besi',
+    [ITEM.BOW]:'Panah', [ITEM.ARROW]:'Anak Panah',
+  };
+  return names[id] || '?';
+}
+function itemEmoji(id){
+  const em = {
+    [ITEM.STICK]:'🪵', [ITEM.COAL]:'⚫', [ITEM.IRON_ORE_ITEM]:'🔸',
+    [ITEM.PICKAXE_WOOD]:'⛏', [ITEM.AXE_WOOD]:'🪓', [ITEM.SWORD_WOOD]:'🗡',
+    [ITEM.PICKAXE_STONE]:'⛏', [ITEM.SWORD_STONE]:'🗡',
+    [ITEM.PICKAXE_IRON]:'⛏', [ITEM.SWORD_IRON]:'🗡',
+    [ITEM.MEAT_RAW]:'🍖', [ITEM.APPLE]:'🍎', [ITEM.BOW]:'🏹',
+  };
+  return em[id] || null;
+}
+function itemColor(id){
+  const colors = {
+    [BLOCK.GRASS]:'#5b9c3f',[BLOCK.DIRT]:'#7a5230',[BLOCK.STONE]:'#8a8a8a',[BLOCK.WOOD]:'#6b4a2a',
+    [BLOCK.PLANK]:'#c9a56a',[BLOCK.SAND]:'#e0d29a',[BLOCK.LEAVES]:'#3f7a2f',[BLOCK.GLASS]:'#bfe8ea',
+    [BLOCK.COAL_ORE]:'#3a3a3a',[BLOCK.IRON_ORE]:'#b5967a',
+    [ITEM.ARROW]:'#8b5a2b',
+    [ITEM.HELMET_IRON]:'#c0c0c8',[ITEM.CHEST_IRON]:'#c0c0c8',[ITEM.LEGS_IRON]:'#c0c0c8',[ITEM.BOOTS_IRON]:'#c0c0c8',
+  };
+  return colors[id] || '#555';
+}
+function toolCategoryName(cat){ return cat==='pickaxe' ? 'beliung' : (cat==='axe' ? 'kapak' : 'senjata'); }
+
+/* ---------------------- Data dunia (flat array) ---------------------- */
+const world = new Uint8Array(CHUNK_X * CHUNK_Y * CHUNK_Z);
+function wIdx(x,y,z){ return x + z*CHUNK_X + y*CHUNK_X*CHUNK_Z; }
+function inBounds(x,y,z){ return x>=0 && x<CHUNK_X && y>=0 && y<CHUNK_Y && z>=0 && z<CHUNK_Z; }
+function getBlock(x,y,z){ if(!inBounds(x,y,z)) return BLOCK.AIR; return world[wIdx(x,y,z)]; }
+function setBlockRaw(x,y,z,t){ if(inBounds(x,y,z)) world[wIdx(x,y,z)] = t; }
+
+/* ---------------------- Noise ---------------------- */
+function hash2(x,z){ let s = Math.sin(x*127.1 + z*311.7) * 43758.5453; return s - Math.floor(s); }
+function hash3(x,y,z){ let s = Math.sin(x*127.1 + y*269.5 + z*419.2) * 43758.5453; return s - Math.floor(s); }
+function smoothNoise(x,z){
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const xf = x - xi, zf = z - zi;
+  const h00 = hash2(xi,zi), h10 = hash2(xi+1,zi), h01 = hash2(xi,zi+1), h11 = hash2(xi+1,zi+1);
+  const u = xf*xf*(3-2*xf), v = zf*zf*(3-2*zf);
+  const nx0 = h00 + (h10-h00)*u;
+  const nx1 = h01 + (h11-h01)*u;
+  return nx0 + (nx1-nx0)*v;
+}
+function fbm(x,z){
+  let total=0, amp=1, freq=1, maxAmp=0;
+  for(let i=0;i<4;i++){ total += smoothNoise(x*freq, z*freq)*amp; maxAmp += amp; amp *= 0.5; freq *= 2; }
+  return total/maxAmp;
+}
+function caveNoise(x,y,z){
+  const xi=Math.floor(x), yi=Math.floor(y), zi=Math.floor(z);
+  const xf=x-xi, yf=y-yi, zf=z-zi;
+  function h(dx,dy,dz){ return hash3(xi+dx, yi+dy, zi+dz); }
+  const c000=h(0,0,0), c100=h(1,0,0), c010=h(0,1,0), c110=h(1,1,0);
+  const c001=h(0,0,1), c101=h(1,0,1), c011=h(0,1,1), c111=h(1,1,1);
+  const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf), w=zf*zf*(3-2*zf);
+  const x00=c000+(c100-c000)*u, x10=c010+(c110-c010)*u;
+  const x01=c001+(c101-c001)*u, x11=c011+(c111-c011)*u;
+  const y0=x00+(x10-x00)*v, y1=x01+(x11-x01)*v;
+  return y0+(y1-y0)*w;
+}
+function terrainHeight(x,z){ const n = fbm(x*0.05, z*0.05); return BASE_Y + Math.floor(n * HEIGHT_VAR * 2); }
+
+/* ---------------------- Generate terrain, gua & bijih ---------------------- */
+function trySet(x,y,z,t){ if(inBounds(x,y,z) && getBlock(x,y,z)===BLOCK.AIR) setBlockRaw(x,y,z,t); }
+
+function placeTree(x,z,h){
+  for(let dy=1; dy<=4; dy++) trySet(x,h+dy,z,BLOCK.WOOD);
+  for(let ly=0; ly<=2; ly++){
+    const r = ly<2 ? 2 : 1;
+    for(let dx=-r; dx<=r; dx++){
+      for(let dz=-r; dz<=r; dz++){
+        if(Math.abs(dx)===2 && Math.abs(dz)===2) continue;
+        trySet(x+dx, h+4+ly, z+dz, BLOCK.LEAVES);
+      }
+    }
+  }
+}
+
+function generateWorld(){
+  const heights = new Int16Array(CHUNK_X*CHUNK_Z);
+  for(let x=0;x<CHUNK_X;x++){
+    for(let z=0;z<CHUNK_Z;z++){
+      const h = terrainHeight(x,z);
+      heights[x+z*CHUNK_X] = h;
+      const beach = h <= WATER_LEVEL+1;
+      for(let y=0;y<CHUNK_Y;y++){
+        let t;
+        if(y>h){
+          t = (y<=WATER_LEVEL) ? BLOCK.WATER : BLOCK.AIR;
+        } else if(y===h){
+          t = beach ? BLOCK.SAND : BLOCK.GRASS;
+        } else if(y>h-4){
+          t = beach ? BLOCK.SAND : BLOCK.DIRT;
+        } else {
+          if(y>1 && y<h-2 && caveNoise(x*0.16,y*0.16,z*0.16) > 0.63){
+            t = BLOCK.AIR;
+          } else {
+            const ov = hash3(x*0.31+50, y*0.31+50, z*0.31+50);
+            if(ov > 0.965 && y < h-8){ t = BLOCK.IRON_ORE; }
+            else if(ov > 0.90 && y < h-4){ t = BLOCK.COAL_ORE; }
+            else { t = BLOCK.STONE; }
+          }
+        }
+        setBlockRaw(x,y,z,t);
+      }
+    }
+  }
+  for(let x=3;x<CHUNK_X-3;x+=4){
+    for(let z=3;z<CHUNK_Z-3;z+=4){
+      const jx = x + Math.floor((hash2(x,z)-0.5)*3);
+      const jz = z + Math.floor((hash2(z,x)-0.5)*3);
+      if(jx<3||jx>=CHUNK_X-3||jz<3||jz>=CHUNK_Z-3) continue;
+      const h = heights[jx+jz*CHUNK_X];
+      if(h<=WATER_LEVEL+1) continue;
+      if(h+6>=CHUNK_Y-1) continue;
+      if(hash2(jx*3.1, jz*7.7) < 0.55) placeTree(jx, jz, h);
+    }
+  }
+  return heights;
+}
+
+function isExposed(x,y,z){
+  const t = getBlock(x,y,z);
+  if(t===BLOCK.AIR) return false;
+  return getBlock(x+1,y,z)===BLOCK.AIR || getBlock(x-1,y,z)===BLOCK.AIR ||
+         getBlock(x,y+1,z)===BLOCK.AIR || getBlock(x,y-1,z)===BLOCK.AIR ||
+         getBlock(x,y,z+1)===BLOCK.AIR || getBlock(x,y,z-1)===BLOCK.AIR;
+}
+function surfaceHeightAt(x,z){
+  const xi=Math.max(0,Math.min(CHUNK_X-1,Math.floor(x)));
+  const zi=Math.max(0,Math.min(CHUNK_Z-1,Math.floor(z)));
+  for(let y=CHUNK_Y-1;y>=0;y--){
+    const t=getBlock(xi,y,zi);
+    if(t!==BLOCK.AIR && t!==BLOCK.WATER) return y+1;
+  }
+  return BASE_Y;
+}
+
+/* ---------------------- Tekstur prosedural (canvas 16x16) ---------------------- */
+function clampByte(v){ return Math.max(0, Math.min(255, Math.round(v))); }
+function noisyFill(ctx,size,base,variance){
+  for(let y=0;y<size;y++){
+    for(let x=0;x<size;x++){
+      const v = (Math.random()-0.5)*variance;
+      ctx.fillStyle = `rgb(${clampByte(base[0]+v)},${clampByte(base[1]+v)},${clampByte(base[2]+v)})`;
+      ctx.fillRect(x,y,1,1);
+    }
+  }
+}
+function makeTexture(drawFn){
+  const size = 16;
+  const cvs = document.createElement('canvas');
+  cvs.width = cvs.height = size;
+  const ctx = cvs.getContext('2d');
+  drawFn(ctx,size);
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const TEX = {
+  dirt:  makeTexture((ctx,s)=> noisyFill(ctx,s,[110,74,46],40)),
+  stone: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[130,130,130],36);
+    ctx.fillStyle='rgba(60,60,60,0.5)';
+    for(let i=0;i<10;i++) ctx.fillRect(Math.floor(Math.random()*s), Math.floor(Math.random()*s),1,1);
+  }),
+  sand: makeTexture((ctx,s)=> noisyFill(ctx,s,[224,210,150],20)),
+  grassTop: makeTexture((ctx,s)=> noisyFill(ctx,s,[86,150,58],36)),
+  grassSide: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[110,74,46],40);
+    const topH = Math.max(3, Math.floor(s*0.3));
+    for(let y=0;y<topH;y++){
+      for(let x=0;x<s;x++){
+        const v=(Math.random()-0.5)*36;
+        ctx.fillStyle = `rgb(${clampByte(86+v)},${clampByte(150+v)},${clampByte(58+v)})`;
+        ctx.fillRect(x,y,1,1);
+      }
+    }
+    ctx.fillStyle='rgb(86,150,58)';
+    for(let x=0;x<s;x++) if(Math.random()<0.5) ctx.fillRect(x, topH, 1, 1);
+  }),
+  bark: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[90,60,38],20);
+    ctx.strokeStyle='rgba(50,32,18,0.6)';
+    for(let x=0;x<s;x+=3){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,s); ctx.stroke(); }
+  }),
+  rings: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[196,160,110],18);
+    ctx.strokeStyle='rgba(120,85,50,0.7)';
+    for(let r=1;r<s/2;r+=2){ ctx.beginPath(); ctx.arc(s/2,s/2,r,0,Math.PI*2); ctx.stroke(); }
+  }),
+  leaves: makeTexture((ctx,s)=>{
+    for(let y=0;y<s;y++){
+      for(let x=0;x<s;x++){
+        if(Math.random()<0.12) continue;
+        const v=(Math.random()-0.5)*40;
+        ctx.fillStyle = `rgb(${clampByte(40+v)},${clampByte(120+v)},${clampByte(40+v)})`;
+        ctx.fillRect(x,y,1,1);
+      }
+    }
+  }),
+  plank: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[196,150,90],16);
+    ctx.strokeStyle='rgba(120,85,45,0.5)';
+    for(let y=0;y<s;y+=4){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(s,y); ctx.stroke(); }
+  }),
+  glass: makeTexture((ctx,s)=>{
+    ctx.fillStyle='rgba(200,230,235,0.35)';
+    ctx.fillRect(0,0,s,s);
+    ctx.strokeStyle='rgba(255,255,255,0.6)';
+    ctx.strokeRect(0.5,0.5,s-1,s-1);
+  }),
+  water: makeTexture((ctx,s)=> noisyFill(ctx,s,[54,98,170],22)),
+  coalOre: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[120,120,120],30);
+    ctx.fillStyle='rgba(20,20,20,0.9)';
+    for(let i=0;i<14;i++) ctx.fillRect(Math.floor(Math.random()*s),Math.floor(Math.random()*s),1,1);
+  }),
+  ironOre: makeTexture((ctx,s)=>{
+    noisyFill(ctx,s,[150,140,130],28);
+    ctx.fillStyle='rgba(190,120,70,0.85)';
+    for(let i=0;i<10;i++) ctx.fillRect(Math.floor(Math.random()*s),Math.floor(Math.random()*s),1,1);
+  }),
+};
+
+function mat(tex, opts){ return new THREE.MeshLambertMaterial(Object.assign({ map: tex }, opts||{})); }
+
+const MATERIALS = {
+  [BLOCK.GRASS]: [ mat(TEX.grassSide), mat(TEX.grassSide), mat(TEX.grassTop), mat(TEX.dirt), mat(TEX.grassSide), mat(TEX.grassSide) ],
+  [BLOCK.DIRT]:  mat(TEX.dirt),
+  [BLOCK.STONE]: mat(TEX.stone),
+  [BLOCK.SAND]:  mat(TEX.sand),
+  [BLOCK.WOOD]:  [ mat(TEX.bark), mat(TEX.bark), mat(TEX.rings), mat(TEX.rings), mat(TEX.bark), mat(TEX.bark) ],
+  [BLOCK.LEAVES]: mat(TEX.leaves, { alphaTest:0.3, side:THREE.DoubleSide }),
+  [BLOCK.PLANK]: mat(TEX.plank),
+  [BLOCK.GLASS]: mat(TEX.glass, { transparent:true, opacity:0.55, side:THREE.DoubleSide }),
+  [BLOCK.WATER]: mat(TEX.water, { transparent:true, opacity:0.65 }),
+  [BLOCK.COAL_ORE]: mat(TEX.coalOre),
+  [BLOCK.IRON_ORE]: mat(TEX.ironOre),
+};
+
+/* ---------------------- Scene / camera / renderer ---------------------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8ec9f0);
+scene.fog = new THREE.Fog(0x8ec9f0, 26, 60);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.rotation.order = 'YXZ';
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.domElement.id = 'gameCanvas';
+document.body.appendChild(renderer.domElement);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x4a6636, 0.95);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 0.65);
+sun.position.set(60,100,40);
+scene.add(sun);
+const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(6,8,8), new THREE.MeshBasicMaterial({ color:0xdfe6ee }));
+scene.add(moonMesh);
+
+const starGeo = new THREE.BufferGeometry();
+const STAR_COUNT = 300;
+const starPos = new Float32Array(STAR_COUNT*3);
+for(let i=0;i<STAR_COUNT;i++){
+  const theta = Math.random()*Math.PI*2;
+  const phi = Math.random()*Math.PI*0.5;
+  const r = 380;
+  starPos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+  starPos[i*3+1] = r*Math.cos(phi)+30;
+  starPos[i*3+2] = r*Math.sin(phi)*Math.sin(theta);
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos,3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color:0xffffff, size:2, transparent:true, opacity:1, sizeAttenuation:false }));
+scene.add(stars);
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ---------------------- Instanced meshes per tipe balok ---------------------- */
+const boxGeo = new THREE.BoxGeometry(1,1,1);
+const instancedMeshes = {};
+const freeList = {};
+const nextIndex = {};
+const capacities = {};
+const blockInstanceMap = new Map();
+const dummy = new THREE.Object3D();
+
+function keyOf(x,y,z){ return x+','+y+','+z; }
+
+function countExposedByType(){
+  const counts = {};
+  for(let x=0;x<CHUNK_X;x++){
+    for(let y=0;y<CHUNK_Y;y++){
+      for(let z=0;z<CHUNK_Z;z++){
+        const t = getBlock(x,y,z);
+        if(t!==BLOCK.AIR && isExposed(x,y,z)) counts[t] = (counts[t]||0) + 1;
+      }
+    }
+  }
+  return counts;
+}
+
+function buildInstancedMeshes(){
+  const counts = countExposedByType();
+  for(const key in BLOCK){
+    const t = BLOCK[key];
+    if(t===BLOCK.AIR) continue;
+    const cap = (counts[t]||0) + BUFFER_SLOTS;
+    capacities[t] = cap;
+    const m = new THREE.InstancedMesh(boxGeo, MATERIALS[t], cap);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.count = 0;
+    m.userData.coordsByInstance = new Array(cap);
+    dummy.position.set(0,-1000,0);
+    dummy.updateMatrix();
+    for(let i=0;i<cap;i++) m.setMatrixAt(i, dummy.matrix);
+    scene.add(m);
+    instancedMeshes[t] = m;
+    freeList[t] = [];
+    nextIndex[t] = 0;
+  }
+}
+
+function allocInstance(type){
+  if(freeList[type].length>0) return freeList[type].pop();
+  if(nextIndex[type] < capacities[type]){
+    const idx = nextIndex[type]++;
+    instancedMeshes[type].count = Math.max(instancedMeshes[type].count, idx+1);
+    return idx;
+  }
+  console.warn('Kapasitas balok penuh untuk tipe', type);
+  return -1;
+}
+function hideInstance(type, idx){
+  const mesh = instancedMeshes[type];
+  dummy.position.set(0,-1000,0);
+  dummy.updateMatrix();
+  mesh.setMatrixAt(idx, dummy.matrix);
+  mesh.instanceMatrix.needsUpdate = true;
+  freeList[type].push(idx);
+}
+function updateBlockVisual(x,y,z){
+  if(!inBounds(x,y,z)) return;
+  const t = getBlock(x,y,z);
+  const k = keyOf(x,y,z);
+  const existing = blockInstanceMap.get(k);
+  const shouldShow = t!==BLOCK.AIR && isExposed(x,y,z);
+
+  if(existing && (!shouldShow || existing.type!==t)){
+    hideInstance(existing.type, existing.idx);
+    blockInstanceMap.delete(k);
+  }
+  if(shouldShow && !blockInstanceMap.has(k)){
+    const idx = allocInstance(t);
+    if(idx!==-1){
+      const mesh = instancedMeshes[t];
+      dummy.position.set(x+0.5, y+0.5, z+0.5);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.userData.coordsByInstance[idx] = { x, y, z };
+      blockInstanceMap.set(k, { type:t, idx });
+    }
+  }
+}
+function refreshBlockAndNeighbors(x,y,z){
+  updateBlockVisual(x,y,z);
+  updateBlockVisual(x+1,y,z); updateBlockVisual(x-1,y,z);
+  updateBlockVisual(x,y+1,z); updateBlockVisual(x,y-1,z);
+  updateBlockVisual(x,y,z+1); updateBlockVisual(x,y,z-1);
+}
+function explodeAt(cx,cy,cz,radius){
+  cx=Math.round(cx); cy=Math.round(cy); cz=Math.round(cz);
+  for(let dx=-radius;dx<=radius;dx++)
+    for(let dy=-radius;dy<=radius;dy++)
+      for(let dz=-radius;dz<=radius;dz++){
+        if(dx*dx+dy*dy+dz*dz > radius*radius) continue;
+        const bx=cx+dx, by=cy+dy, bz=cz+dz;
+        if(!inBounds(bx,by,bz) || by<=0) continue;
+        if(getBlock(bx,by,bz)===BLOCK.AIR) continue;
+        setBlockRaw(bx,by,bz,BLOCK.AIR);
+      }
+  const R = radius+1;
+  for(let dx=-R;dx<=R;dx++)
+    for(let dy=-R;dy<=R;dy++)
+      for(let dz=-R;dz<=R;dz++)
+        updateBlockVisual(cx+dx,cy+dy,cz+dz);
+}
+
+/* ---------------------- Highlight target ---------------------- */
+const highlightGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02,1.02,1.02));
+const highlightMesh = new THREE.LineSegments(highlightGeo, new THREE.LineBasicMaterial({ color:0x000000 }));
+highlightMesh.visible = false;
+scene.add(highlightMesh);
+
+/* ---------------------- Player (nilai dunia diisi setelah loading) ---------------------- */
+const PLAYER_RADIUS = 0.3, PLAYER_HEIGHT = 1.75, EYE_HEIGHT = 1.6, CROUCH_EYE_HEIGHT = 1.3;
+const GRAVITY = 26, JUMP_SPEED = 8.2, SPEED_WALK = 4.3, SPEED_SPRINT = 6.6, SPEED_CROUCH = 1.8, FLY_SPEED = 6.0;
+const REACH = 6, BOW_REACH = 20;
+const HEALTH_MAX = 18, HUNGER_MAX = 18;
+const spawnX = Math.floor(CHUNK_X/2), spawnZ = Math.floor(CHUNK_Z/2);
+
+let spawnHeightMap = null, spawnH = BASE_Y;
+let player = { x: spawnX+0.5, y: BASE_Y+2, z: spawnZ+0.5 };
+const velocity = { x:0, y:0, z:0 };
+let onGround = false;
+let yaw = 0, pitch = -0.1;
+let fallApex = player.y;
+let kickTimer = 0;
+let flying = false;
+
+let gameMode = 'creative';
+let gameEnded = false;
+let health = HEALTH_MAX;
+let hunger = HUNGER_MAX;
+let hungerTimer = 0, starveTimer = 0;
+let armor = { head:null, chest:null, legs:null, feet:null };
+
+let hotbarSlots = new Array(9).fill(null);
+let selectedSlotIndex = 0;
+
+function isCollidingPlayer(px,py,pz){
+  const r = PLAYER_RADIUS, h = PLAYER_HEIGHT;
+  const minX = Math.floor(px-r), maxX = Math.floor(px+r);
+  const minY = Math.floor(py+0.02), maxY = Math.floor(py+h-0.02);
+  const minZ = Math.floor(pz-r), maxZ = Math.floor(pz+r);
+  for(let bx=minX; bx<=maxX; bx++)
+    for(let by=minY; by<=maxY; by++)
+      for(let bz=minZ; bz<=maxZ; bz++)
+        if(isSolid(getBlock(bx,by,bz))) return true;
+  return false;
+}
+function moveAxis(axis, delta){
+  if(delta===0) return;
+  player[axis] += delta;
+  if(isCollidingPlayer(player.x, player.y, player.z)){
+    player[axis] -= delta;
+    if(axis==='y'){ if(delta<0) onGround = true; velocity.y = 0; }
+  }
+}
+function respawnPlayer(){
+  player.x = spawnX+0.5; player.z = spawnZ+0.5;
+  player.y = spawnH+2;
+  velocity.x = velocity.y = velocity.z = 0;
+  fallApex = player.y;
+}
+
+/* ---------------------- Inventory, armor & crafting ---------------------- */
+function addItemToInventory(id, count){
+  count = count||1;
+  for(const slot of hotbarSlots){ if(slot && slot.id===id){ slot.count += count; renderHotbarSurvival(); return; } }
+  for(let i=0;i<hotbarSlots.length;i++){
+    if(!hotbarSlots[i]){ hotbarSlots[i] = { id, count }; renderHotbarSurvival(); return; }
+  }
+  flashToast('Inventaris penuh!');
+}
+function hasItems(id,count){
+  let total=0;
+  for(const slot of hotbarSlots) if(slot && slot.id===id) total += slot.count;
+  return total>=count;
+}
+function consumeItems(id,count){
+  let remaining=count;
+  for(let i=0;i<hotbarSlots.length && remaining>0;i++){
+    const slot = hotbarSlots[i];
+    if(slot && slot.id===id){
+      const take = Math.min(slot.count, remaining);
+      slot.count -= take; remaining -= take;
+      if(slot.count<=0) hotbarSlots[i] = null;
+    }
+  }
+}
+function removeItemFromSlot(slotIndex,count){
+  const slot = hotbarSlots[slotIndex];
+  if(!slot) return false;
+  count = count||1;
+  if(slot.count<count) return false;
+  slot.count -= count;
+  if(slot.count<=0) hotbarSlots[slotIndex] = null;
+  renderHotbarSurvival();
+  return true;
+}
+function totalArmorReduction(){
+  let r=0; for(const k of ARMOR_SLOTS) if(armor[k]) r += armor[k].reduce;
+  return Math.min(0.6, r);
+}
+function craft(recipe){
+  for(const need of recipe.needs) if(!hasItems(need.id, need.count)) return false;
+  for(const need of recipe.needs) consumeItems(need.id, need.count);
+  if(recipe.isArmor){
+    armor[recipe.slot] = { id:recipe.result, reduce:recipe.reduce };
+    flashToast('Memakai ' + recipe.name + '!');
+  } else {
+    addItemToInventory(recipe.result, recipe.resultCount);
+  }
+  renderHotbarSurvival();
+  renderCraftPanel();
+  renderArmorHud();
+  playSound('craft');
+  return true;
+}
+function getHeldItem(){
+  if(gameMode==='creative') return { id:selectedBlock, count:Infinity };
+  return hotbarSlots[selectedSlotIndex];
+}
+function dropForBlock(t){
+  if(t===BLOCK.COAL_ORE) return { id:ITEM.COAL, count:1 };
+  if(t===BLOCK.IRON_ORE) return { id:ITEM.IRON_ORE_ITEM, count:1 };
+  if(t===BLOCK.GRASS) return { id:BLOCK.DIRT, count:1 };
+  return { id:t, count:1 };
+}
+function tryEat(id){
+  const info = FOOD_INFO[id];
+  if(!info) return false;
+  if(!removeItemFromSlot(selectedSlotIndex,1)) return false;
+  hunger = Math.min(HUNGER_MAX, hunger+info.hunger);
+  playSound('eat');
+  updateHudBars();
+  return true;
+}
+function eatSelected(){
+  if(gameMode==='creative') return;
+  const held = getHeldItem();
+  if(!held) return;
+  if(!tryEat(held.id)) flashToast('Item ini tidak bisa dimakan');
+}
+
+/* ---------------------- HUD: hotbar, vitals, toast, panels ---------------------- */
+const hotbarEl = document.getElementById('hotbar');
+const vitalsEl = document.getElementById('vitals');
+const heartsRowEl = document.getElementById('heartsRow');
+const hungerRowEl = document.getElementById('hungerRow');
+const armorRowEl = document.getElementById('armorRow');
+const toastEl = document.getElementById('toast');
+const craftPanelEl = document.getElementById('craftPanel');
+const recipeListEl = document.getElementById('recipeList');
+const hitFlashEl = document.getElementById('hitFlash');
+const settingsPanelEl = document.getElementById('settingsPanel');
+const gameOverScreenEl = document.getElementById('gameOverScreen');
+
+let toastTimer = null;
+function flashToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 1400);
+}
+function flashOverlay(color){
+  hitFlashEl.style.background = color;
+  setTimeout(()=>{ hitFlashEl.style.background = 'rgba(255,255,255,0)'; }, 90);
+}
+function cameraKick(){ kickTimer = 0.12; }
+function updateHudBars(){
+  if(gameMode==='creative'){ vitalsEl.style.display='none'; return; }
+  vitalsEl.style.display='block';
+  const fullHearts = Math.max(0, Math.min(9, Math.round(health/2)));
+  heartsRowEl.textContent = '❤'.repeat(fullHearts) + '♡'.repeat(9-fullHearts);
+  const fullFood = Math.max(0, Math.min(9, Math.round(hunger/2)));
+  hungerRowEl.textContent = '🍗'.repeat(fullFood) + '▫'.repeat(9-fullFood);
+}
+function renderArmorHud(){
+  const icons = { head:'⛑', chest:'🦺', legs:'👖', feet:'👞' };
+  armorRowEl.textContent = ARMOR_SLOTS.map(k=> armor[k] ? icons[k] : '·').join(' ');
+}
+
+function renderHotbarCreative(){
+  hotbarEl.innerHTML = '';
+  HOTBAR_CREATIVE.forEach((item,i)=>{
+    const el = document.createElement('div');
+    el.className = 'slot' + (item.type===selectedBlock ? ' selected' : '');
+    el.innerHTML = `<span class="num">${i+1}</span><span class="swatch" style="background:${item.color}"></span>`;
+    el.addEventListener('click', ()=> selectCreativeSlot(item.type));
+    el.addEventListener('touchstart', (e)=>{ selectCreativeSlot(item.type); e.preventDefault(); }, { passive:false });
+    hotbarEl.appendChild(el);
+  });
+}
+function selectCreativeSlot(type){ selectedBlock = type; renderHotbarCreative(); }
+
+function renderHotbarSurvival(){
+  hotbarEl.innerHTML = '';
+  hotbarSlots.forEach((slot,i)=>{
+    const el = document.createElement('div');
+    el.className = 'slot' + (i===selectedSlotIndex ? ' selected' : '');
+    if(slot){
+      const em = itemEmoji(slot.id);
+      el.innerHTML = em
+        ? `<span class="num">${i+1}</span><span class="emoji">${em}</span><span class="count">${slot.count}</span>`
+        : `<span class="num">${i+1}</span><span class="swatch" style="background:${itemColor(slot.id)}"></span><span class="count">${slot.count}</span>`;
+    } else {
+      el.innerHTML = `<span class="num">${i+1}</span>`;
+    }
+    el.addEventListener('click', ()=> selectSurvivalSlot(i));
+    el.addEventListener('touchstart', (e)=>{ selectSurvivalSlot(i); e.preventDefault(); }, { passive:false });
+    hotbarEl.appendChild(el);
+  });
+}
+function selectSurvivalSlot(i){ selectedSlotIndex = i; renderHotbarSurvival(); }
+
+function renderCraftPanel(){
+  recipeListEl.innerHTML = '';
+  RECIPES.forEach(r=>{
+    const ok = r.needs.every(n=> hasItems(n.id, n.count));
+    const needsText = r.needs.map(n=> `${n.count}× ${itemLabel(n.id)}`).join(' + ');
+    const row = document.createElement('div');
+    row.className = 'recipeRow';
+    row.innerHTML = `<div class="recipeInfo"><b>${itemEmoji(r.result)||''} ${r.name} ${r.isArmor?'':'×'+r.resultCount}</b><br><span class="recipeNeeds">butuh: ${needsText}</span></div>`;
+    const btn = document.createElement('button');
+    btn.className = 'craftBtn';
+    btn.textContent = 'BUAT';
+    btn.disabled = !ok;
+    btn.addEventListener('click', ()=> craft(r));
+    row.appendChild(btn);
+    recipeListEl.appendChild(row);
+  });
+}
+let craftOpen = false, settingsOpen = false, chatOpen = false;
+function anyModalOpen(){ return craftOpen || settingsOpen || chatOpen; }
+function releasePointerLockIfNeeded(){ if(isLocked) document.exitPointerLock(); }
+function reacquirePointerLockIfNeeded(){ if(!isTouchDevice && !anyModalOpen()) renderer.domElement.requestPointerLock(); }
+
+function toggleCraftPanel(){
+  if(gameMode==='creative' || gameEnded) return;
+  craftOpen = !craftOpen;
+  craftPanelEl.style.display = craftOpen ? 'flex' : 'none';
+  if(craftOpen){ renderCraftPanel(); releasePointerLockIfNeeded(); }
+  else reacquirePointerLockIfNeeded();
+}
+craftPanelEl.addEventListener('click', (e)=>{ if(e.target===craftPanelEl) toggleCraftPanel(); });
+
+function toggleSettingsPanel(){
+  if(gameEnded) return;
+  settingsOpen = !settingsOpen;
+  settingsPanelEl.style.display = settingsOpen ? 'flex' : 'none';
+  if(settingsOpen) releasePointerLockIfNeeded();
+  else reacquirePointerLockIfNeeded();
+}
+settingsPanelEl.addEventListener('click', (e)=>{ if(e.target===settingsPanelEl) toggleSettingsPanel(); });
+
+/* ---------------------- Suara sintesis ---------------------- */
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+function playSound(kind){
+  try{
+    ensureAudio();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const presets = {
+      break:{ freq:180, type:'square',   dur:0.08, vol:0.15 },
+      place:{ freq:260, type:'square',   dur:0.06, vol:0.12 },
+      hit:  { freq:340, type:'sawtooth', dur:0.08, vol:0.15 },
+      hurt: { freq:120, type:'sawtooth', dur:0.18, vol:0.2 },
+      eat:  { freq:420, type:'triangle', dur:0.09, vol:0.15 },
+      craft:{ freq:520, type:'triangle', dur:0.12, vol:0.15 },
+      jump: { freq:300, type:'sine',     dur:0.07, vol:0.1 },
+      shoot:{ freq:500, type:'sine',     dur:0.07, vol:0.12 },
+      boom: { freq:80,  type:'sawtooth', dur:0.35, vol:0.3 },
+    };
+    const p = presets[kind] || presets.break;
+    osc.type = p.type;
+    osc.frequency.setValueAtTime(p.freq, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(30, p.freq*0.6), t+p.dur);
+    gain.gain.setValueAtTime(p.vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t+p.dur);
+    osc.start(t); osc.stop(t+p.dur+0.02);
+  } catch(e){ /* audio tidak tersedia, abaikan */ }
+}
+
+/* ---------------------- Day/night cycle ---------------------- */
+let worldTime = 0.25;
+const DAY_LENGTH = 280;
+let isNight = false, wasNight = false;
+function updateDayNight(dt){
+  worldTime += dt/DAY_LENGTH;
+  if(worldTime>=1) worldTime -= 1;
+  const angle = worldTime*Math.PI*2;
+  const sunY = Math.sin(angle);
+  const sunX = Math.cos(angle);
+  sun.position.set(sunX*100, sunY*100+20, 40);
+  moonMesh.position.set(-sunX*100, -sunY*100+20, 40);
+  isNight = sunY <= 0.05;
+
+  const dayColor = new THREE.Color(0x8ec9f0);
+  const nightColor = new THREE.Color(0x0b0f1f);
+  const tt = Math.max(0, Math.min(1, (sunY+0.3)/0.6));
+  const skyColor = dayColor.clone().lerp(nightColor, 1-tt);
+  scene.background = skyColor;
+  scene.fog.color = skyColor;
+  sun.intensity = Math.max(0.05, 0.65*tt);
+  hemi.intensity = Math.max(0.15, 0.95*tt);
+  moonMesh.visible = isNight;
+  stars.visible = tt < 0.4;
+  if(stars.visible) stars.material.opacity = 1-(tt/0.4);
+
+  if(wasNight && !isNight){
+    for(const m of mobs.slice()) if(HOSTILE_TYPES.includes(m.type) && !m.dead) removeMob(m);
+  }
+  wasNight = isNight;
+}
+
+/* ---------------------- Mob: pasif & hostile ---------------------- */
+function createCowMesh(){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color:0xf5f0e6 });
+  const spotMat = new THREE.MeshLambertMaterial({ color:0x4a3524 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.6,0.5), bodyMat); body.position.y=0.55;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.35,0.35), spotMat); head.position.set(0,0.7,0.55);
+  const legGeo = new THREE.BoxGeometry(0.15,0.5,0.15);
+  g.add(body, head);
+  [[0.3,0.18],[0.3,-0.18],[-0.3,0.18],[-0.3,-0.18]].forEach(([dx,dz])=>{
+    const leg = new THREE.Mesh(legGeo, spotMat); leg.position.set(dz,0.25,dx); g.add(leg);
+  });
+  return g;
+}
+function createPigMesh(){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color:0xe9a3b0 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.5,0.45), bodyMat); body.position.y=0.45;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.3), bodyMat); head.position.set(0,0.55,0.48);
+  const legGeo = new THREE.BoxGeometry(0.12,0.4,0.12);
+  g.add(body, head);
+  [[0.25,0.15],[0.25,-0.15],[-0.25,0.15],[-0.25,-0.15]].forEach(([dx,dz])=>{
+    const leg = new THREE.Mesh(legGeo, bodyMat); leg.position.set(dz,0.2,dx); g.add(leg);
+  });
+  return g;
+}
+function createSheepMesh(){
+  const g = new THREE.Group();
+  const wool = new THREE.MeshLambertMaterial({ color:0xf2f2ec });
+  const dark = new THREE.MeshLambertMaterial({ color:0x555555 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.65,0.55), wool); body.position.y=0.6;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.3), dark); head.position.set(0,0.7,0.55);
+  const legGeo = new THREE.BoxGeometry(0.15,0.45,0.15);
+  g.add(body, head);
+  [[0.3,0.18],[0.3,-0.18],[-0.3,0.18],[-0.3,-0.18]].forEach(([dx,dz])=>{
+    const leg = new THREE.Mesh(legGeo, dark); leg.position.set(dz,0.22,dx); g.add(leg);
+  });
+  return g;
+}
+function createChickenMesh(){
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color:0xffffff });
+  const red = new THREE.MeshLambertMaterial({ color:0xcc3333 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.35,0.3), white); body.position.y=0.32;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.18), white); head.position.set(0,0.5,0.22);
+  const comb = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.08,0.06), red); comb.position.set(0,0.62,0.22);
+  const legGeo = new THREE.BoxGeometry(0.06,0.25,0.06);
+  g.add(body, head, comb);
+  [[0.08,0],[ -0.08,0]].forEach(([dx,dz])=>{
+    const leg = new THREE.Mesh(legGeo, red); leg.position.set(dx,0.12,dz); g.add(leg);
+  });
+  return g;
+}
+function createZombieMesh(){
+  const g = new THREE.Group();
+  const skin = new THREE.MeshLambertMaterial({ color:0x4c8c4a });
+  const cloth = new THREE.MeshLambertMaterial({ color:0x2e5a8a });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.75,0.3), cloth); body.position.y=0.9;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4), skin); head.position.y=1.5;
+  const armGeo = new THREE.BoxGeometry(0.18,0.7,0.18);
+  const legGeo = new THREE.BoxGeometry(0.2,0.75,0.2);
+  const armL = new THREE.Mesh(armGeo, skin); armL.position.set(0.34,0.9,0);
+  const armR = new THREE.Mesh(armGeo, skin); armR.position.set(-0.34,0.9,0);
+  const legL = new THREE.Mesh(legGeo, cloth); legL.position.set(0.14,0.35,0);
+  const legR = new THREE.Mesh(legGeo, cloth); legR.position.set(-0.14,0.35,0);
+  g.add(body,head,armL,armR,legL,legR);
+  return g;
+}
+function createSkeletonMesh(){
+  const g = new THREE.Group();
+  const bone = new THREE.MeshLambertMaterial({ color:0xe8e4d0 });
+  const dark = new THREE.MeshLambertMaterial({ color:0x9a968a });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.7,0.22), bone); body.position.y=0.9;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.35,0.35), bone); head.position.y=1.48;
+  const armGeo = new THREE.BoxGeometry(0.14,0.7,0.14);
+  const legGeo = new THREE.BoxGeometry(0.16,0.75,0.16);
+  const armL = new THREE.Mesh(armGeo, bone); armL.position.set(0.3,0.9,0);
+  const armR = new THREE.Mesh(armGeo, bone); armR.position.set(-0.3,0.9,0);
+  const legL = new THREE.Mesh(legGeo, dark); legL.position.set(0.12,0.35,0);
+  const legR = new THREE.Mesh(legGeo, dark); legR.position.set(-0.12,0.35,0);
+  g.add(body,head,armL,armR,legL,legR);
+  return g;
+}
+function createSpiderMesh(){
+  const g = new THREE.Group();
+  const dark = new THREE.MeshLambertMaterial({ color:0x1c1414 });
+  const eye = new THREE.MeshLambertMaterial({ color:0xcc2222 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.35,0.9), dark); body.position.y=0.28;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.3,0.35), dark); head.position.set(0,0.32,0.55);
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.05), eye); eyeL.position.set(0.1,0.35,0.72);
+  const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.05), eye); eyeR.position.set(-0.1,0.35,0.72);
+  const legGeo = new THREE.BoxGeometry(0.06,0.35,0.06);
+  g.add(body,head,eyeL,eyeR);
+  [[0.4,0.3],[0.4,-0.3],[-0.4,0.3],[-0.4,-0.3],[0.45,0],[-0.45,0]].forEach(([dx,dz])=>{
+    const leg = new THREE.Mesh(legGeo, dark); leg.position.set(dz,0.2,dx); leg.rotation.z=0.5; g.add(leg);
+  });
+  return g;
+}
+function createCreeperMesh(){
+  const g = new THREE.Group();
+  const green = new THREE.MeshLambertMaterial({ color:0x3fa34d });
+  const dark = new THREE.MeshLambertMaterial({ color:0x1f5a29 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.9,0.3), green); body.position.y=0.9;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4), dark); head.position.y=1.55;
+  const legGeo = new THREE.BoxGeometry(0.2,0.4,0.2);
+  const legL = new THREE.Mesh(legGeo, green); legL.position.set(0.14,0.2,0.1);
+  const legR = new THREE.Mesh(legGeo, green); legR.position.set(-0.14,0.2,0.1);
+  g.add(body,head,legL,legR);
+  return g;
+}
+function meshForType(type){
+  switch(type){
+    case 'cow': return createCowMesh();
+    case 'pig': return createPigMesh();
+    case 'sheep': return createSheepMesh();
+    case 'chicken': return createChickenMesh();
+    case 'zombie': return createZombieMesh();
+    case 'skeleton': return createSkeletonMesh();
+    case 'spider': return createSpiderMesh();
+    case 'creeper': return createCreeperMesh();
+    default: return createCowMesh();
+  }
+}
+const MOB_HP = { cow:6, pig:5, sheep:5, chicken:3, zombie:8, skeleton:8, spider:6, creeper:6 };
+const PASSIVE_TYPES = ['cow','pig','sheep','chicken'];
+const HOSTILE_TYPES = ['zombie','skeleton','spider','creeper'];
+const mobs = [];
+function spawnMob(type,x,z){
+  const h = surfaceHeightAt(x,z);
+  const mesh = meshForType(type);
+  mesh.position.set(x,h,z);
+  scene.add(mesh);
+  const hp = MOB_HP[type] || 6;
+  const mob = { type, mesh, x, y:h, z, facing:Math.random()*Math.PI*2, wandering:false,
+    hp, maxHp:hp, aiTimer:0, attackCooldown:0, fuse:0, dead:false };
+  mobs.push(mob);
+  return mob;
+}
+function removeMob(m){
+  scene.remove(m.mesh);
+  m.dead = true;
+  const idx = mobs.indexOf(m);
+  if(idx!==-1) mobs.splice(idx,1);
+}
+function trySpawnPassiveInitial(){
+  let spawned=0, attempts=0;
+  while(spawned<10 && attempts<400){
+    attempts++;
+    const x = 2+Math.random()*(CHUNK_X-4);
+    const z = 2+Math.random()*(CHUNK_Z-4);
+    const h = surfaceHeightAt(x,z);
+    if(getBlock(Math.floor(x),h-1,Math.floor(z))===BLOCK.GRASS){
+      spawnMob(PASSIVE_TYPES[Math.floor(Math.random()*PASSIVE_TYPES.length)], x, z);
+      spawned++;
+    }
+  }
+}
+const MAX_PASSIVE_TOTAL = 12, MAX_HOSTILE_TOTAL = 8;
+let mobSpawnTimer = 5;
+function updateMobSpawning(dt){
+  mobSpawnTimer -= dt;
+  if(mobSpawnTimer>0) return;
+  mobSpawnTimer = 5;
+  const passiveCount = mobs.filter(m=>!m.dead && PASSIVE_TYPES.includes(m.type)).length;
+  const hostileCount = mobs.filter(m=>!m.dead && HOSTILE_TYPES.includes(m.type)).length;
+  if(passiveCount<MAX_PASSIVE_TOTAL && Math.random()<0.5){
+    const type = PASSIVE_TYPES[Math.floor(Math.random()*PASSIVE_TYPES.length)];
+    const x=2+Math.random()*(CHUNK_X-4), z=2+Math.random()*(CHUNK_Z-4);
+    const h=surfaceHeightAt(x,z);
+    if(getBlock(Math.floor(x),h-1,Math.floor(z))===BLOCK.GRASS) spawnMob(type,x,z);
+  }
+  if(isNight && hostileCount<MAX_HOSTILE_TOTAL && Math.random()<0.6){
+    const type = HOSTILE_TYPES[Math.floor(Math.random()*HOSTILE_TYPES.length)];
+    const x=2+Math.random()*(CHUNK_X-4), z=2+Math.random()*(CHUNK_Z-4);
+    const dist=Math.hypot(x-player.x, z-player.z);
+    if(dist>6) spawnMob(type,x,z);
+  }
+}
+const BASE_HOSTILE_SPEED=2.0, ZOMBIE_DETECT=8, ZOMBIE_DAMAGE=2, ATTACK_COOLDOWN=1.0, COW_SPEED=1.2;
+function updateMobs(dt){
+  for(const m of mobs.slice()){
+    if(m.dead) continue;
+    m.aiTimer -= dt;
+    let moveAngle=null, speed=0;
+
+    if(PASSIVE_TYPES.includes(m.type)){
+      if(m.aiTimer<=0){ m.aiTimer=2+Math.random()*3; m.facing=Math.random()*Math.PI*2; m.wandering=Math.random()<0.7; }
+      if(m.wandering){ moveAngle=m.facing; speed = m.type==='chicken' ? COW_SPEED*1.3 : COW_SPEED; }
+
+    } else if(m.type==='creeper'){
+      const dx=player.x-m.x, dz=player.z-m.z; const dist=Math.hypot(dx,dz);
+      if(dist<8){
+        moveAngle=Math.atan2(dx,dz); m.facing=moveAngle;
+        speed = dist<2.5 ? 0 : BASE_HOSTILE_SPEED*0.9;
+        if(dist<2.5){
+          m.fuse += dt;
+          if(m.fuse>1.4){
+            if(gameMode!=='creative'){
+              const dmg = Math.max(2, Math.round(8-dist*2));
+              damagePlayer(dmg);
+            }
+            explodeAt(m.x, m.y+0.5, m.z, 2);
+            playSound('boom');
+            removeMob(m);
+            continue;
+          }
+        } else { m.fuse = 0; }
+      } else {
+        m.fuse = 0;
+        if(m.aiTimer<=0){ m.aiTimer=2+Math.random()*3; m.facing=Math.random()*Math.PI*2; m.wandering=Math.random()<0.6; }
+        if(m.wandering){ moveAngle=m.facing; speed=BASE_HOSTILE_SPEED*0.4; }
+      }
+
+    } else if(HOSTILE_TYPES.includes(m.type)){
+      const dx=player.x-m.x, dz=player.z-m.z; const dist=Math.hypot(dx,dz);
+      const spd = m.type==='spider' ? BASE_HOSTILE_SPEED*1.3 : BASE_HOSTILE_SPEED;
+      const dmg = m.type==='spider' ? 1 : ZOMBIE_DAMAGE;
+      if(dist<ZOMBIE_DETECT){
+        moveAngle = Math.atan2(dx,dz) + (m.type==='spider' ? (Math.random()-0.5)*0.6 : 0);
+        m.facing = moveAngle;
+        speed = dist<1.3 ? 0 : spd;
+        if(dist<1.3){
+          m.attackCooldown -= dt;
+          if(m.attackCooldown<=0){ m.attackCooldown = ATTACK_COOLDOWN; damagePlayer(dmg); }
+        }
+      } else {
+        if(m.aiTimer<=0){ m.aiTimer=2+Math.random()*3; m.facing=Math.random()*Math.PI*2; m.wandering=Math.random()<0.6; }
+        if(m.wandering){ moveAngle=m.facing; speed=spd*0.5; }
+      }
+    }
+
+    if(moveAngle!==null && speed>0){
+      const nx = m.x + Math.sin(moveAngle)*speed*dt;
+      const nz = m.z + Math.cos(moveAngle)*speed*dt;
+      if(nx>1 && nx<CHUNK_X-1 && nz>1 && nz<CHUNK_Z-1){ m.x=nx; m.z=nz; }
+      else { m.aiTimer=0; }
+    }
+    m.y = surfaceHeightAt(m.x, m.z);
+    m.mesh.position.set(m.x, m.y, m.z);
+    if(moveAngle!==null) m.mesh.rotation.y = moveAngle;
+  }
+}
+function findMobTarget(reach){
+  reach = reach || REACH;
+  const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
+  let best=null, bestDist=reach;
+  for(const m of mobs){
+    if(m.dead) continue;
+    const dx=m.x-camera.position.x, dy=(m.y+0.6)-camera.position.y, dz=m.z-camera.position.z;
+    const dist=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(dist>reach) continue;
+    const toMob = new THREE.Vector3(dx,dy,dz).normalize();
+    const dot = toMob.dot(camDir);
+    if(dot>0.85 && dist<bestDist){ best=m; bestDist=dist; }
+  }
+  return best;
+}
+function dealDamageToMob(m, dmg){
+  m.hp -= dmg;
+  playSound('hit');
+  flashOverlay('rgba(255,255,255,0.18)');
+  cameraKick();
+  if(m.hp<=0){
+    if(gameMode!=='creative' && PASSIVE_TYPES.includes(m.type)){
+      addItemToInventory(ITEM.MEAT_RAW, 1+Math.floor(Math.random()*2));
+    }
+    removeMob(m);
+  }
+}
+function attackMob(m){
+  const held = getHeldItem();
+  const info = held && TOOL_INFO[held.id];
+  const dmg = (info && info.category==='sword') ? info.dmg : 1;
+  dealDamageToMob(m, dmg);
+}
+function damagePlayer(amount){
+  if(gameMode==='creative' || gameEnded) return;
+  const reduced = Math.max(0, amount*(1-totalArmorReduction()));
+  health -= reduced;
+  flashOverlay('rgba(200,0,0,0.35)');
+  playSound('hurt');
+  updateHudBars();
+  if(health<=0){
+    if(gameMode==='hardcore'){ triggerGameOver(); }
+    else { respawnPlayer(); health=HEALTH_MAX; hunger=Math.max(hunger,10); updateHudBars(); }
+  }
+}
+function triggerGameOver(){
+  gameEnded = true;
+  releasePointerLockIfNeeded();
+  gameOverScreenEl.style.display = 'flex';
+}
+document.getElementById('btnRestart').addEventListener('click', ()=> location.reload());
+
+/* ---------------------- Input: keyboard ---------------------- */
+const keys = {};
+let sprintOn = false;
+window.addEventListener('keydown', (e)=>{
+  if(chatOpen) return;
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if(k===' ' || k==='arrowup' || k==='arrowdown' || k==='arrowleft' || k==='arrowright') e.preventDefault();
+  if(k>='1' && k<='9'){
+    const i = parseInt(k,10)-1;
+    if(gameMode==='creative'){ if(HOTBAR_CREATIVE[i]) selectCreativeSlot(HOTBAR_CREATIVE[i].type); }
+    else if(i<hotbarSlots.length) selectSurvivalSlot(i);
+  }
+  if(k==='e') toggleCraftPanel();
+  if(k==='r') eatSelected();
+  if(k==='t'){ e.preventDefault(); openChat(); }
+  if(k==='escape'){ if(settingsOpen) toggleSettingsPanel(); else if(craftOpen) toggleCraftPanel(); else if(!isTouchDevice) toggleSettingsPanel(); }
+  if(k==='f'){ showDebug = !showDebug; debugHud.style.display = showDebug ? 'block' : 'none'; }
+  if(k==='shift' && !e.repeat){ sprintOn = !sprintOn; }
+  if(k===' ' && !e.repeat){
+    const now = performance.now();
+    if(experimentalMode && now-lastSpaceTime<350){
+      flying = !flying;
+      velocity.y = 0;
+      flashToast(flying ? 'Terbang: AKTIF' : 'Terbang: NONAKTIF');
+    }
+    lastSpaceTime = now;
+  }
+});
+window.addEventListener('keyup', (e)=>{ if(!chatOpen) keys[e.key.toLowerCase()] = false; });
+let lastSpaceTime = 0;
+
+/* ---------------------- Input: mouse look + pointer lock ---------------------- */
+const blocker = document.getElementById('blocker');
+const startPanel = document.getElementById('startPanel');
+const touchLayer = document.getElementById('touchLayer');
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+let isLocked = false;
+let MOUSE_SENS = 0.0022;
+let TOUCH_SENS = 0.0045;
+
+if(isTouchDevice){ startPanel.classList.add('mobile'); touchLayer.style.display = 'block'; }
+
+function startGame(mode){
+  ensureAudio();
+  if(isTouchDevice) lockLandscape();
+  gameMode = mode;
+  gameEnded = false;
+  gameOverScreenEl.style.display = 'none';
+  armor = { head:null, chest:null, legs:null, feet:null };
+  flying = false;
+  if(gameMode!=='creative'){
+    health = HEALTH_MAX; hunger = HUNGER_MAX; fallApex = player.y;
+    hotbarSlots = new Array(9).fill(null);
+    selectedSlotIndex = 0;
+    renderHotbarSurvival();
+    updateHudBars();
+    renderArmorHud();
+  } else {
+    vitalsEl.style.display = 'none';
+    renderHotbarCreative();
+  }
+  if(isTouchDevice){ blocker.style.display = 'none'; }
+  else { renderer.domElement.requestPointerLock(); }
+}
+document.getElementById('btnSurvival').addEventListener('click', ()=> startGame('survival'));
+document.getElementById('btnHardcore').addEventListener('click', ()=> startGame('hardcore'));
+document.getElementById('btnCreative').addEventListener('click', ()=> startGame('creative'));
+renderHotbarCreative();
+
+document.addEventListener('pointerlockchange', ()=>{
+  isLocked = (document.pointerLockElement === renderer.domElement);
+  if(!anyModalOpen() && !gameEnded) blocker.style.display = isLocked ? 'none' : 'flex';
+});
+document.addEventListener('mousemove', (e)=>{
+  if(!isLocked) return;
+  yaw -= e.movementX * MOUSE_SENS;
+  pitch -= e.movementY * MOUSE_SENS;
+  pitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, pitch));
+});
+renderer.domElement.addEventListener('mousedown', (e)=>{
+  if(!isLocked) return;
+  if(e.button===0) performAttackOrBreak();
+  else if(e.button===2) placeBlock();
+});
+renderer.domElement.addEventListener('contextmenu', (e)=>{ if(isLocked) e.preventDefault(); });
+
+/* ---------------------- Fullscreen ---------------------- */
+function toggleFullscreen(){
+  if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+  else { document.exitFullscreen().catch(()=>{}); }
+}
+document.getElementById('btnFullscreenStart').addEventListener('click', toggleFullscreen);
+document.getElementById('btnFullscreenToggle').addEventListener('click', toggleFullscreen);
+
+/* ---------------------- Auto landscape pas mulai main ---------------------- */
+function lockLandscape(){
+  const el = document.documentElement;
+  const reqFullscreen = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+
+  function doLock(){
+    if(screen.orientation && screen.orientation.lock){
+      screen.orientation.lock('landscape').catch(()=>{ /* browser gak izinin, biarin user putar manual */ });
+    } else if(screen.lockOrientation){
+      try{ screen.lockOrientation('landscape'); }catch(e){}
+    }
+  }
+
+  if(!document.fullscreenElement && reqFullscreen){
+    reqFullscreen.call(el).then(doLock).catch(doLock);
+  } else {
+    doLock();
+  }
+}
+
+// lepas kunci rotasi kalau keluar dari fullscreen (misal user pencet back), biar HP balik normal
+document.addEventListener('fullscreenchange', ()=>{
+  if(!document.fullscreenElement && screen.orientation && screen.orientation.unlock){
+    try{ screen.orientation.unlock(); }catch(e){}
+  }
+});
+
+/* ---------------------- Chat / command console ---------------------- */
+const chatWrapEl = document.getElementById('chatWrap');
+const chatInputEl = document.getElementById('chatInput');
+function openChat(){
+  if(gameEnded) return;
+  chatOpen = true;
+  chatWrapEl.style.display = 'block';
+  releasePointerLockIfNeeded();
+  chatInputEl.value = '';
+  chatInputEl.focus();
+}
+function closeChat(){
+  chatOpen = false;
+  chatWrapEl.style.display = 'none';
+  chatInputEl.blur();
+  reacquirePointerLockIfNeeded();
+}
+chatInputEl.addEventListener('keydown', (e)=>{
+  e.stopPropagation();
+  if(e.key==='Enter'){ handleChatCommand(chatInputEl.value); closeChat(); }
+  else if(e.key==='Escape'){ closeChat(); }
+});
+document.getElementById('btnChatToggle').addEventListener('click', ()=>{ chatOpen ? closeChat() : openChat(); });
+
+function handleChatCommand(text){
+  text = (text||'').trim();
+  if(!text) return;
+  if(!text.startsWith('/')){ flashToast('Gunakan format /perintah, ketik /help'); return; }
+  const parts = text.slice(1).split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  if(cmd==='time'){
+    if(parts[1]==='day'){ worldTime=0.25; flashToast('Waktu → siang'); }
+    else if(parts[1]==='night'){ worldTime=0.75; flashToast('Waktu → malam'); }
+    else flashToast('Gunakan /time day atau /time night');
+  } else if(cmd==='heal'){
+    health=HEALTH_MAX; hunger=HUNGER_MAX; updateHudBars(); flashToast('Nyawa & lapar dipulihkan');
+  } else if(cmd==='gamemode'){
+    const m = parts[1];
+    if(m==='creative'||m==='survival'||m==='hardcore'){ startGame(m); flashToast('Mode → '+m); }
+    else flashToast('Gunakan /gamemode creative|survival|hardcore');
+  } else if(cmd==='give'){
+    const map = { kayu:BLOCK.WOOD, batu:BLOCK.STONE, papan:BLOCK.PLANK, tongkat:ITEM.STICK,
+      besi:ITEM.IRON_ORE_ITEM, batubara:ITEM.COAL, daging:ITEM.MEAT_RAW, apel:ITEM.APPLE,
+      panah:ITEM.BOW, anakpanah:ITEM.ARROW };
+    const id = map[parts[1]];
+    if(id!==undefined && gameMode!=='creative'){ addItemToInventory(id,5); flashToast('Diberi 5× '+itemLabel(id)); }
+    else flashToast('Item tidak dikenal / lagi mode kreatif');
+  } else if(cmd==='tp'){
+    const x=parseFloat(parts[1]), y=parseFloat(parts[2]), z=parseFloat(parts[3]);
+    if(!isNaN(x) && !isNaN(y) && !isNaN(z)){
+      player.x=x; player.y=y; player.z=z; velocity.x=velocity.y=velocity.z=0;
+      flashToast('Berpindah ke '+x+','+y+','+z);
+    } else flashToast('Gunakan /tp x y z');
+  } else if(cmd==='fly'){
+    experimentalMode = true; flying = !flying; flashToast(flying?'Terbang: AKTIF':'Terbang: NONAKTIF');
+  } else if(cmd==='help'){
+    flashToast('/time /heal /gamemode /give /tp /fly /help');
+  } else {
+    flashToast('Komando tidak dikenal. Coba /help');
+  }
+}
+
+/* ---------------------- Settings panel ---------------------- */
+let experimentalMode = false;
+const rngRender = document.getElementById('rngRender');
+const rngSens = document.getElementById('rngSens');
+const rngFov = document.getElementById('rngFov');
+const rngQuality = document.getElementById('rngQuality');
+const chkExperimental = document.getElementById('chkExperimental');
+const valRender = document.getElementById('valRender');
+const valSens = document.getElementById('valSens');
+const valFov = document.getElementById('valFov');
+const valQuality = document.getElementById('valQuality');
+
+rngRender.value = 60; valRender.textContent = '60';
+rngSens.value = 5; valSens.textContent = '5';
+rngFov.value = 75; valFov.textContent = '75';
+rngQuality.value = 2; valQuality.textContent = 'Sedang';
+
+rngRender.addEventListener('input', ()=>{
+  const v = parseInt(rngRender.value,10);
+  valRender.textContent = v;
+  scene.fog.near = v*0.4;
+  scene.fog.far = v;
+});
+rngSens.addEventListener('input', ()=>{
+  const v = parseInt(rngSens.value,10);
+  valSens.textContent = v;
+  MOUSE_SENS = 0.0008 + (v-1)*0.0004;
+  TOUCH_SENS = 0.0018 + (v-1)*0.0008;
+});
+rngFov.addEventListener('input', ()=>{
+  const v = parseInt(rngFov.value,10);
+  valFov.textContent = v;
+  camera.fov = v;
+  camera.updateProjectionMatrix();
+});
+rngQuality.addEventListener('input', ()=>{
+  const v = parseInt(rngQuality.value,10);
+  const labels = { 1:'Rendah', 2:'Sedang', 3:'Tinggi' };
+  valQuality.textContent = labels[v];
+  const ratios = { 1:0.75, 2:1, 3:Math.min(window.devicePixelRatio||1,2) };
+  renderer.setPixelRatio(ratios[v]);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+chkExperimental.addEventListener('change', ()=>{
+  experimentalMode = chkExperimental.checked;
+  flashToast(experimentalMode ? 'Mode eksperimental aktif (double-tap Spasi = terbang)' : 'Mode eksperimental nonaktif');
+  if(!experimentalMode) flying = false;
+});
+document.getElementById('btnSettingsToggle').addEventListener('click', toggleSettingsPanel);
+
+/* ---------------------- Input: touch ---------------------- */
+let touchMove = { forward:0, right:0 };
+let joyTouchId = null, joyStartX=0, joyStartY=0;
+const joyBase = document.getElementById('joyBase');
+const joyKnob = document.getElementById('joyKnob');
+const JOY_RADIUS = 44;
+
+joyBase.addEventListener('touchstart', (e)=>{
+  const t = e.changedTouches[0];
+  joyTouchId = t.identifier;
+  const rect = joyBase.getBoundingClientRect();
+  joyStartX = rect.left + rect.width/2;
+  joyStartY = rect.top + rect.height/2;
+  e.preventDefault();
+}, { passive:false });
+joyBase.addEventListener('touchmove', (e)=>{
+  for(const t of e.changedTouches){
+    if(t.identifier!==joyTouchId) continue;
+    let dx = t.clientX - joyStartX, dy = t.clientY - joyStartY;
+    const dist = Math.min(JOY_RADIUS, Math.hypot(dx,dy));
+    const ang = Math.atan2(dy,dx);
+    dx = Math.cos(ang)*dist; dy = Math.sin(ang)*dist;
+    joyKnob.style.transform = `translate(${dx-21}px, ${dy-21}px)`;
+    touchMove.right = dx/JOY_RADIUS;
+    touchMove.forward = -dy/JOY_RADIUS;
+  }
+  e.preventDefault();
+}, { passive:false });
+function endJoy(e){
+  for(const t of e.changedTouches){
+    if(t.identifier!==joyTouchId) continue;
+    joyTouchId = null; touchMove.forward = 0; touchMove.right = 0;
+    joyKnob.style.transform = 'translate(-50%,-50%)';
+  }
+}
+joyBase.addEventListener('touchend', endJoy);
+joyBase.addEventListener('touchcancel', endJoy);
+
+let lookTouchId = null, lookLastX=0, lookLastY=0;
+renderer.domElement.addEventListener('touchstart', (e)=>{
+  if(lookTouchId!==null) return;
+  const t = e.changedTouches[0];
+  lookTouchId = t.identifier; lookLastX = t.clientX; lookLastY = t.clientY;
+}, { passive:true });
+renderer.domElement.addEventListener('touchmove', (e)=>{
+  for(const t of e.changedTouches){
+    if(t.identifier!==lookTouchId) continue;
+    const dx = t.clientX - lookLastX, dy = t.clientY - lookLastY;
+    lookLastX = t.clientX; lookLastY = t.clientY;
+    yaw -= dx*TOUCH_SENS;
+    pitch -= dy*TOUCH_SENS;
+    pitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, pitch));
+  }
+}, { passive:true });
+function endLook(e){ for(const t of e.changedTouches) if(t.identifier===lookTouchId) lookTouchId = null; }
+renderer.domElement.addEventListener('touchend', endLook);
+renderer.domElement.addEventListener('touchcancel', endLook);
+
+let touchJump = false, touchCrouch = false;
+const btnJump = document.getElementById('btnJump');
+btnJump.addEventListener('touchstart', (e)=>{ touchJump = true; e.preventDefault(); }, { passive:false });
+btnJump.addEventListener('touchend', (e)=>{ touchJump = false; e.preventDefault(); }, { passive:false });
+document.getElementById('btnBreak').addEventListener('touchstart', (e)=>{ performAttackOrBreak(); e.preventDefault(); }, { passive:false });
+document.getElementById('btnPlace').addEventListener('touchstart', (e)=>{ placeBlock(); e.preventDefault(); }, { passive:false });
+document.getElementById('btnEat').addEventListener('touchstart', (e)=>{ eatSelected(); e.preventDefault(); }, { passive:false });
+document.getElementById('btnBag').addEventListener('touchstart', (e)=>{ toggleCraftPanel(); e.preventDefault(); }, { passive:false });
+
+const btnSprintEl = document.getElementById('btnSprint');
+btnSprintEl.addEventListener('touchstart', (e)=>{
+  sprintOn = !sprintOn;
+  btnSprintEl.classList.toggle('active', sprintOn);
+  e.preventDefault();
+}, { passive:false });
+const btnCrouchEl = document.getElementById('btnCrouch');
+btnCrouchEl.addEventListener('touchstart', (e)=>{ touchCrouch = true; btnCrouchEl.classList.add('active'); e.preventDefault(); }, { passive:false });
+btnCrouchEl.addEventListener('touchend', (e)=>{ touchCrouch = false; btnCrouchEl.classList.remove('active'); e.preventDefault(); }, { passive:false });
+
+/* ---------------------- Raycasting / break, place, serang ---------------------- */
+const raycaster = new THREE.Raycaster();
+let currentTarget = null;
+function updateTargetHighlight(){
+  raycaster.setFromCamera({ x:0, y:0 }, camera);
+  const meshes = Object.values(instancedMeshes);
+  const hits = raycaster.intersectObjects(meshes);
+  let found = null;
+  for(const hit of hits){
+    if(hit.distance > REACH) break;
+    const coordsArr = hit.object.userData.coordsByInstance;
+    const c = coordsArr[hit.instanceId];
+    if(!c) continue;
+    const t = getBlock(c.x, c.y, c.z);
+    if(t===BLOCK.AIR || t===BLOCK.WATER) continue;
+    found = { coords:c, normal: hit.face.normal.clone() };
+    break;
+  }
+  currentTarget = found;
+  if(found){
+    highlightMesh.visible = true;
+    highlightMesh.position.set(found.coords.x+0.5, found.coords.y+0.5, found.coords.z+0.5);
+  } else {
+    highlightMesh.visible = false;
+  }
+}
+function isInsidePlayerBox(bx,by,bz){
+  const r = PLAYER_RADIUS, h = PLAYER_HEIGHT;
+  return bx < player.x+r && bx+1 > player.x-r &&
+         bz < player.z+r && bz+1 > player.z-r &&
+         by < player.y+h && by+1 > player.y;
+}
+function performAttackOrBreak(){
+  const held = getHeldItem();
+  if(held && held.id===ITEM.BOW && gameMode!=='creative'){
+    if(!hasItems(ITEM.ARROW,1)){ flashToast('Butuh anak panah!'); return; }
+    consumeItems(ITEM.ARROW,1);
+    renderHotbarSurvival();
+    playSound('shoot');
+    cameraKick();
+    const target = findMobTarget(BOW_REACH);
+    if(target) dealDamageToMob(target, 4);
+    else flashToast('Meleset!');
+    return;
+  }
+  const mobTarget = findMobTarget();
+  if(mobTarget){ attackMob(mobTarget); return; }
+  breakBlock();
+}
+function breakBlock(){
+  if(!currentTarget) return;
+  const { x, y, z } = currentTarget.coords;
+  const t = getBlock(x,y,z);
+  if(gameMode!=='creative'){
+    const req = BLOCK_INFO[t];
+    if(req){
+      const held = getHeldItem();
+      const info = held && TOOL_INFO[held.id];
+      const tierOk = info && info.category===req.needsTool && info.tier>=req.minTier;
+      if(!tierOk){ flashToast('Butuh ' + req.label + '!'); return; }
+    }
+  }
+  setBlockRaw(x,y,z,BLOCK.AIR);
+  refreshBlockAndNeighbors(x,y,z);
+  playSound('break');
+  cameraKick();
+  if(gameMode!=='creative'){
+    const drop = dropForBlock(t);
+    if(drop) addItemToInventory(drop.id, drop.count);
+    if(t===BLOCK.LEAVES && Math.random()<0.05) addItemToInventory(ITEM.APPLE,1);
+  }
+}
+function placeBlock(){
+  if(!currentTarget) return;
+  const n = currentTarget.normal;
+  const px = currentTarget.coords.x + Math.round(n.x);
+  const py = currentTarget.coords.y + Math.round(n.y);
+  const pz = currentTarget.coords.z + Math.round(n.z);
+  if(!inBounds(px,py,pz)) return;
+  if(getBlock(px,py,pz) !== BLOCK.AIR) return;
+  if(isInsidePlayerBox(px,py,pz)) return;
+
+  if(gameMode==='creative'){
+    setBlockRaw(px,py,pz,selectedBlock);
+    refreshBlockAndNeighbors(px,py,pz);
+    playSound('place');
+    return;
+  }
+  const held = getHeldItem();
+  if(!held || held.id<BLOCK.GRASS || held.id>BLOCK.IRON_ORE) return;
+  if(!removeItemFromSlot(selectedSlotIndex,1)) return;
+  setBlockRaw(px,py,pz,held.id);
+  refreshBlockAndNeighbors(px,py,pz);
+  playSound('place');
+}
+
+/* ---------------------- Debug HUD ---------------------- */
+const debugHud = document.getElementById('debugHud');
+let showDebug = false;
+let fps = 0, fpsFrames = 0, fpsTimer = 0;
+
+/* ---------------------- Loop utama ---------------------- */
+let lastTime = performance.now();
+const UP = new THREE.Vector3(0,1,0);
+const tmpDir = new THREE.Vector3();
+const tmpRight = new THREE.Vector3();
+
+function updatePlayer(dt){
+  const kick = kickTimer>0 ? (kickTimer/0.12)*0.05 : 0;
+  if(kickTimer>0) kickTimer -= dt;
+  camera.rotation.x = pitch - kick;
+  camera.rotation.y = yaw;
+
+  camera.getWorldDirection(tmpDir);
+  tmpDir.y = 0;
+  if(tmpDir.lengthSq() > 0.0001) tmpDir.normalize();
+  tmpRight.crossVectors(tmpDir, UP).normalize();
+
+  let f = 0, r = 0;
+  if(keys['w'] || keys['arrowup']) f += 1;
+  if(keys['s'] || keys['arrowdown']) f -= 1;
+  if(keys['d'] || keys['arrowright']) r += 1;
+  if(keys['a'] || keys['arrowleft']) r -= 1;
+  f += touchMove.forward; r += touchMove.right;
+  f = Math.max(-1, Math.min(1, f));
+  r = Math.max(-1, Math.min(1, r));
+
+  const moveX = tmpDir.x*f + tmpRight.x*r;
+  const moveZ = tmpDir.z*f + tmpRight.z*r;
+  const len = Math.hypot(moveX, moveZ);
+  const norm = len>1 ? 1/len : 1;
+
+  const crouching = !!(keys['c'] || touchCrouch);
+  const speed = flying ? FLY_SPEED : (crouching ? SPEED_CROUCH : (sprintOn ? SPEED_SPRINT : SPEED_WALK));
+  velocity.x = moveX*norm*speed;
+  velocity.z = moveZ*norm*speed;
+
+  if(flying){
+    velocity.y = 0;
+    let vy = 0;
+    if(keys[' '] || touchJump) vy += FLY_SPEED;
+    if(crouching) vy -= FLY_SPEED;
+    moveAxis('x', velocity.x*dt);
+    moveAxis('z', velocity.z*dt);
+    player.y += vy*dt;
+    onGround = false;
+  } else {
+    velocity.y -= GRAVITY*dt;
+    if(velocity.y < -30) velocity.y = -30;
+
+    const wasOnGround = onGround;
+    if((keys[' '] || touchJump) && onGround){
+      velocity.y = JUMP_SPEED;
+      onGround = false;
+      playSound('jump');
+    }
+    if(wasOnGround) fallApex = player.y;
+
+    onGround = false;
+    moveAxis('x', velocity.x*dt);
+    moveAxis('z', velocity.z*dt);
+    moveAxis('y', velocity.y*dt);
+
+    if(!onGround && player.y > fallApex) fallApex = player.y;
+    if(onGround && !wasOnGround){
+      const fallDist = fallApex - player.y;
+      if(fallDist > 3 && gameMode!=='creative') damagePlayer(Math.round((fallDist-3)*1.2));
+    }
+  }
+
+  if(player.y < -20) respawnPlayer();
+
+  camera.position.set(player.x, player.y+(crouching && !flying ? CROUCH_EYE_HEIGHT : EYE_HEIGHT), player.z);
+}
+
+function updateHunger(dt){
+  if(gameMode==='creative') return;
+  hungerTimer += dt;
+  if(hungerTimer>=20){ hungerTimer=0; hunger=Math.max(0,hunger-1); updateHudBars(); }
+  if(hunger<=0){
+    starveTimer += dt;
+    if(starveTimer>=4){ starveTimer=0; if(health>2) damagePlayer(1); }
+  } else { starveTimer = 0; }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now-lastTime)/1000, 0.05);
+  lastTime = now;
+
+  if(!anyModalOpen() && !gameEnded){
+    updatePlayer(dt);
+    updateTargetHighlight();
+    updateMobs(dt);
+    updateMobSpawning(dt);
+    updateHunger(dt);
+    updateDayNight(dt);
+  }
+  renderer.render(scene, camera);
+
+  fpsFrames++;
+  fpsTimer += dt;
+  if(fpsTimer >= 0.5){
+    fps = Math.round(fpsFrames/fpsTimer);
+    fpsFrames = 0; fpsTimer = 0;
+    if(showDebug){
+      const heldName = gameMode==='creative' ? itemLabel(selectedBlock) : (getHeldItem() ? itemLabel(getHeldItem().id) : '(kosong)');
+      debugHud.textContent = `FPS: ${fps} | Mode: ${gameMode} | Pos: ${player.x.toFixed(1)}, ${player.y.toFixed(1)}, ${player.z.toFixed(1)} | Pegang: ${heldName} | ${isNight?'Malam':'Siang'} | Mob: ${mobs.length}`;
+    }
+  }
+}
+
+/* ---------------------- Loading sequence ---------------------- */
+const loadingScreenEl = document.getElementById('loadingScreen');
+const loadingBarEl = document.getElementById('loadingBar');
+const loadingTextEl = document.getElementById('loadingText');
+function setLoadingProgress(pct, text){ loadingBarEl.style.width = pct+'%'; loadingTextEl.textContent = text; }
+
+function runLoadStages(){
+  setLoadingProgress(8, 'Menyiapkan tekstur & material...');
+  setTimeout(()=>{
+    setLoadingProgress(28, 'Membentuk daratan, gua & bijih...');
+    setTimeout(()=>{
+      spawnHeightMap = generateWorld();
+      setLoadingProgress(58, 'Membangun dunia voxel (64×40×64)...');
+      setTimeout(()=>{
+        buildInstancedMeshes();
+        setLoadingProgress(82, 'Mengisi balok yang terlihat...');
+        setTimeout(()=>{
+          for(let x=0;x<CHUNK_X;x++)
+            for(let y=0;y<CHUNK_Y;y++)
+              for(let z=0;z<CHUNK_Z;z++)
+                updateBlockVisual(x,y,z);
+          spawnH = spawnHeightMap[spawnX + spawnZ*CHUNK_X];
+          player = { x:spawnX+0.5, y:spawnH+2, z:spawnZ+0.5 };
+          fallApex = player.y;
+          trySpawnPassiveInitial();
+          setLoadingProgress(100, 'Selesai!');
+          setTimeout(()=>{
+            loadingScreenEl.style.display = 'none';
+            animate();
+          }, 250);
+        }, 30);
+      }, 30);
+    }, 30);
+  }, 30);
+}
+setTimeout(runLoadStages, 40);
+
+})();
+</script>
+</body>
+</html>
